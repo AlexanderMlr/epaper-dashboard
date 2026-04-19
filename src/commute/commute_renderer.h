@@ -10,7 +10,7 @@ class CommuteRenderer {
  public:
   CommuteRenderer(uint8_t* framebuffer, int originX, int originY, int width,
                   int height);
-  void draw(const std::vector<CommuteRoute>& routes);
+  void draw(const std::vector<CommuteRoute>& routes, bool inQuietHours);
 
  private:
   uint8_t* framebuffer_;

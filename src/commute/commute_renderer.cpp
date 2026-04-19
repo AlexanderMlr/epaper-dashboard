@@ -1,5 +1,7 @@
 #include "commute_renderer.h"
 
+#include <algorithm>
+
 #include "../config.h"
 #include "firasans.h"
 
@@ -18,6 +20,7 @@ constexpr int HEADER_Y2 = 135;
 constexpr int ROUTE_START_Y = 105;
 constexpr int INNER_LINE_DIST = 35;
 constexpr int ROUTE_SPACING = 80;
+constexpr size_t MAX_DISPLAYED_ROUTES = 5;
 
 // Fixed columns on line 1 keep "->" aligned across rows regardless of delay.
 constexpr int COL_DEP = 10;
@@ -82,7 +85,20 @@ void CommuteRenderer::drawRoute(const CommuteRoute& route, int y) {
   write_string((GFXfont*)&FiraSans, lines.c_str(), &x, &textY, framebuffer_);
 }
 
-void CommuteRenderer::draw(const std::vector<CommuteRoute>& routes) {
+void CommuteRenderer::draw(const std::vector<CommuteRoute>& routes,
+                           bool inQuietHours) {
+  if (inQuietHours) {
+    int32_t x = originX_ + 10;
+    int32_t y = originY_ + TITLE_Y;
+    write_string((GFXfont*)&FiraSans, "Commute", &x, &y, framebuffer_);
+
+    x = originX_ + 10;
+    y = originY_ + HEADER_Y1;
+    write_string((GFXfont*)&FiraSans, "Outside commute hours", &x, &y,
+                 framebuffer_);
+    return;
+  }
+
   if (routes.empty()) {
     int32_t x = originX_ + 10;
     int32_t y = originY_ + 100;
@@ -93,7 +109,8 @@ void CommuteRenderer::draw(const std::vector<CommuteRoute>& routes) {
 
   drawHeader();
 
-  for (size_t i = 0; i < routes.size(); i++) {
+  const size_t n = std::min(routes.size(), MAX_DISPLAYED_ROUTES);
+  for (size_t i = 0; i < n; i++) {
     drawRoute(routes[i], ROUTE_START_Y + (int)i * ROUTE_SPACING);
   }
 }

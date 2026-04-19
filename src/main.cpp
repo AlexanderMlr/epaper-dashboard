@@ -14,6 +14,7 @@
 #include "config.h"
 #include "display_manager.h"
 #include "epd_driver.h"
+#include "firasans.h"
 #include "utilities.h"
 #include "weather/weather_renderer.h"
 #include "weather/weather_service.h"
@@ -41,30 +42,34 @@ bool connectToWiFi() {
   }
 }
 
-uint64_t computeSleepMicros() {
-  struct tm t;
-  if (!getLocalTime(&t, 1000)) {
-    return (uint64_t)UPDATE_INTERVAL_MS * 1000ULL;
-  }
-
-  const bool inQuiet = (QUIET_HOURS_START < QUIET_HOURS_END)
+bool isInQuietHours(const struct tm& t) {
+  return (QUIET_HOURS_START < QUIET_HOURS_END)
       ? (t.tm_hour >= QUIET_HOURS_START && t.tm_hour < QUIET_HOURS_END)
       : (t.tm_hour >= QUIET_HOURS_START || t.tm_hour < QUIET_HOURS_END);
+}
 
-  if (!inQuiet) {
+uint64_t computeSleepMicros(bool haveTime, const struct tm& t) {
+  if (!haveTime) {
     return (uint64_t)UPDATE_INTERVAL_MS * 1000ULL;
   }
+  const int intervalMs =
+      isInQuietHours(t) ? QUIET_UPDATE_INTERVAL_MS : UPDATE_INTERVAL_MS;
+  return (uint64_t)intervalMs * 1000ULL;
+}
 
-  struct tm wake = t;
-  wake.tm_hour = QUIET_HOURS_END;
-  wake.tm_min = 0;
-  wake.tm_sec = 0;
-  time_t wakeTs = mktime(&wake);
-  time_t nowTs = mktime(&t);
-  if (wakeTs <= nowTs) {
-    wakeTs += 24 * 3600;
-  }
-  return (uint64_t)(wakeTs - nowTs) * 1000000ULL;
+void drawFooter(uint8_t* framebuffer, const struct tm& now, uint64_t sleepUs) {
+  struct tm next = now;
+  next.tm_sec += (int)(sleepUs / 1000000ULL);
+  mktime(&next);
+
+  char footer[64];
+  snprintf(footer, sizeof(footer),
+           "Updated %02d:%02d  |  Next update %02d:%02d", now.tm_hour,
+           now.tm_min, next.tm_hour, next.tm_min);
+
+  int32_t x = 20;
+  int32_t y = EPD_HEIGHT - 20;
+  write_string((GFXfont*)&FiraSans, footer, &x, &y, framebuffer);
 }
 
 void deepSleep(uint64_t sleepUs) {
@@ -109,11 +114,19 @@ void setup() {
     Serial.println("NTP sync failed, commute times may be wrong.");
   }
 
+  struct tm nowT{};
+  bool haveTime = getLocalTime(&nowT, 1000);
+  bool inQuiet = haveTime && isInQuietHours(nowT);
+  uint64_t sleepUs = computeSleepMicros(haveTime, nowT);
+
   Serial.println("Fetching data...");
   WeatherService weatherService;
-  CommuteService commuteService;
   std::vector<WeatherData> forecast = weatherService.fetchForecast();
-  std::vector<CommuteRoute> routes = commuteService.fetchRoutes();
+  std::vector<CommuteRoute> routes;
+  if (!inQuiet) {
+    CommuteService commuteService;
+    routes = commuteService.fetchRoutes();
+  }
   Serial.printf("Fetched %u forecasts, %u routes\n",
                 (unsigned)forecast.size(), (unsigned)routes.size());
 
@@ -126,11 +139,15 @@ void setup() {
 
   CommuteRenderer commuteUI(display.getFramebuffer(), halfWidth, 0, halfWidth,
                             EPD_HEIGHT);
-  commuteUI.draw(routes);
+  commuteUI.draw(routes, inQuiet);
+
+  if (haveTime) {
+    drawFooter(display.getFramebuffer(), nowT, sleepUs);
+  }
 
   display.refresh();
 
-  deepSleep(computeSleepMicros());
+  deepSleep(sleepUs);
 }
 
 void loop() {}
