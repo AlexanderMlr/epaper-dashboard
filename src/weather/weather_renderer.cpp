@@ -57,7 +57,7 @@ void WeatherRenderer::drawCurrentWeather(const WeatherData& weather) {
   x = originX_ + iconX + ICON_SIZE;
   y = originY_ + iconY + 2 * TEXT_LINE_DISTANCE;
   String rainStr =
-      "Rain: " + String((int)(weather.rain_probability * 100)) + "%";
+      "Rain: " + String((int)(weather.rain_probability)) + "%";
   write_string((GFXfont*)&FiraSans, rainStr.c_str(), &x, &y, framebuffer_);
 }
 
