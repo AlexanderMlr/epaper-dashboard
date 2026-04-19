@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(src/config.h)"
+    ]
+  }
+}
