@@ -17,8 +17,6 @@ const int NUM_FORECASTS = 4;
 // Commute (bahn.expert)
 constexpr const char *COMMUTE_START_EVA = "";
 constexpr const char *COMMUTE_DEST_EVA = "";
-constexpr const char *COMMUTE_START_NAME = "";
-constexpr const char *COMMUTE_DEST_NAME = "";
 const int COMMUTE_NUM_ROUTES = 5;
 
 // Timing

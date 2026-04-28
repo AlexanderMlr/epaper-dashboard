@@ -15,8 +15,6 @@ CommuteRenderer::CommuteRenderer(uint8_t* framebuffer, int originX,
 
 namespace {
 constexpr int TITLE_Y = 50;
-constexpr int HEADER_Y1 = 100;
-constexpr int HEADER_Y2 = 135;
 constexpr int ROUTE_START_Y = 105;
 constexpr int INNER_LINE_DIST = 35;
 constexpr int ROUTE_SPACING = 80;
@@ -34,14 +32,6 @@ void CommuteRenderer::drawHeader() {
   int32_t x = originX_ + 10;
   int32_t y = originY_ + TITLE_Y;
   write_string((GFXfont*)&FiraSans, "Commute", &x, &y, framebuffer_);
-
-  x = originX_ + 10;
-  y = originY_ + HEADER_Y1;
-  write_string((GFXfont*)&FiraSans, COMMUTE_START_NAME, &x, &y, framebuffer_);
-
-  x = originX_ + 10;
-  y = originY_ + HEADER_Y2;
-  write_string((GFXfont*)&FiraSans, COMMUTE_DEST_NAME, &x, &y, framebuffer_);
 }
 
 void CommuteRenderer::drawRoute(const CommuteRoute& route, int y) {
@@ -93,7 +83,7 @@ void CommuteRenderer::draw(const std::vector<CommuteRoute>& routes,
     write_string((GFXfont*)&FiraSans, "Commute", &x, &y, framebuffer_);
 
     x = originX_ + 10;
-    y = originY_ + HEADER_Y1;
+    y = originY_ + ROUTE_START_Y;
     write_string((GFXfont*)&FiraSans, "Outside commute hours", &x, &y,
                  framebuffer_);
     return;
