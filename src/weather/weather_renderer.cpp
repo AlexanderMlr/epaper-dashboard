@@ -107,7 +107,8 @@ void WeatherRenderer::drawCommuteRecommendation(
   write_string((GFXfont*)&FiraSans, recommendation, &x, &y, framebuffer_);
 }
 
-void WeatherRenderer::draw(const std::vector<WeatherData>& forecast) {
+void WeatherRenderer::draw(const std::vector<WeatherData>& forecast,
+                           bool showCommute) {
   if (forecast.empty()) {
     int32_t x = originX_ + 20;
     int32_t y = originY_ + 100;
@@ -123,5 +124,7 @@ void WeatherRenderer::draw(const std::vector<WeatherData>& forecast) {
     drawForecastGrid(forecast);
   }
 
-  drawCommuteRecommendation(forecast);
+  if (showCommute) {
+    drawCommuteRecommendation(forecast);
+  }
 }

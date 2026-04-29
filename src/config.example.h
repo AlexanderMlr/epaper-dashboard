@@ -32,7 +32,7 @@ const int CALENDAR_LOOKAHEAD_DAYS = 14;
 const int UPDATE_INTERVAL_MIN = 5;             // commute-hours refresh interval
 const int OFF_HOURS_UPDATE_INTERVAL_MIN = 120; // refresh interval outside commute hours
 const int WIFI_RETRY_SLEEP_SEC = 30;   // deep-sleep duration after WiFi failure
-const int COLD_BOOT_HOLDOFF_SEC = 30;  // reflash window on power-on / RST; skipped on timer wake
+const int COLD_BOOT_HOLDOFF_SEC = 20;  // reflash window on power-on / RST; skipped on timer wake
 
 // Display
 const int DISPLAY_WIDTH = EPD_WIDTH;

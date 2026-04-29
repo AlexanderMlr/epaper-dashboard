@@ -10,7 +10,7 @@ class WeatherRenderer {
  public:
   WeatherRenderer(uint8_t* framebuffer, int originX, int originY, int width,
                   int height);
-  void draw(const std::vector<WeatherData>& forecast);
+  void draw(const std::vector<WeatherData>& forecast, bool showCommute);
 
  private:
   uint8_t* framebuffer_;

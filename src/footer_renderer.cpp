@@ -14,7 +14,7 @@ void FooterRenderer::draw(const struct tm& now, uint64_t sleepUs,
 
   char footer[96];
   snprintf(footer, sizeof(footer),
-           "Updated %02d:%02d | Next %02d:%02d | %d%% (%.2fV)",
+           "Updated %02d:%02d | Next Update %02d:%02d | %d%% (%.2fV)",
            now.tm_hour, now.tm_min, next.tm_hour, next.tm_min, batteryPercent,
            batteryVoltage);
 

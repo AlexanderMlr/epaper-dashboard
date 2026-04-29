@@ -4,6 +4,7 @@
 #include <WiFiClientSecure.h>
 
 #include <algorithm>
+#include <cstring>
 
 #include "../config.h"
 
@@ -120,39 +121,33 @@ void applyProperty(EventDraft& ev, const String& nameAndParams,
   }
 }
 
-// Reads one logical (unfolded) iCal line from the stream. Returns false at
-// EOF. Continuation lines (leading space/tab) are merged into the previous.
-bool readLogicalLine(Client& s, String& carry, String& out) {
-  while (true) {
-    // Block briefly for more bytes; bail when the connection is fully drained.
-    while (!s.available()) {
-      if (!s.connected()) {
-        if (carry.length()) {
-          out = carry;
-          carry = "";
-          return true;
-        }
-        return false;
-      }
-      delay(2);
-    }
-    int peeked = s.peek();
-    if (peeked == ' ' || peeked == '\t') {
-      s.read();  // consume the fold indicator
-      String cont = s.readStringUntil('\n');
-      cont.replace("\r", "");
-      carry += cont;
-      continue;
-    }
-    if (carry.length()) {
-      out = carry;
-      carry = s.readStringUntil('\n');
-      carry.replace("\r", "");
-      return true;
-    }
-    carry = s.readStringUntil('\n');
-    carry.replace("\r", "");
+// Appends bytes from body[pos..] up to (and consuming) the next '\n' into
+// out, skipping '\r'. Returns false at EOF with nothing appended.
+bool appendPhysicalLine(const char* body, size_t len, size_t& pos,
+                        String& out) {
+  if (pos >= len) return false;
+  while (pos < len) {
+    char c = body[pos++];
+    if (c == '\n') return true;
+    if (c == '\r') continue;
+    out += c;
   }
+  return true;
+}
+
+// Reads one logical (unfolded) iCal line. Continuation lines (leading
+// space/tab) are merged into the previous. `out` should be pre-reserved
+// by the caller and is cleared here. Avoids per-line String allocations.
+bool readLogicalLine(const char* body, size_t len, size_t& pos, String& out) {
+  out = "";
+  if (!appendPhysicalLine(body, len, pos, out)) return false;
+  while (pos < len) {
+    char c = body[pos];
+    if (c != ' ' && c != '\t') break;
+    pos++;  // consume fold indicator
+    appendPhysicalLine(body, len, pos, out);
+  }
+  return true;
 }
 
 }  // namespace
@@ -171,29 +166,46 @@ std::vector<CalendarEvent> CalendarService::fetchEvents() {
   HTTPClient http;
   http.begin(client, CALENDAR_ICS_URL);
   http.setTimeout(15000);
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
   Serial.println("Fetching calendar ICS...");
   int code = http.GET();
-  Serial.printf("Calendar response code: %d\n", code);
+  Serial.printf("Calendar response code: %d (size=%d)\n", code,
+                http.getSize());
   if (code != HTTP_CODE_OK) {
     http.end();
     return events;
   }
 
+  // getString() decodes chunked Transfer-Encoding (which Google's ICS
+  // endpoint uses); reading the raw stream would block on chunk metadata.
+  String body = http.getString();
+  http.end();
+  Serial.printf("ICS body length: %u, free heap: %u\n",
+                (unsigned)body.length(), (unsigned)ESP.getFreeHeap());
+
   time_t now = time(nullptr);
   time_t windowEnd = now + (time_t)CALENDAR_LOOKAHEAD_DAYS * 86400;
 
-  WiFiClient& stream = http.getStream();
-  String carry;
+  const char* bodyPtr = body.c_str();
+  const size_t bodyLen = body.length();
+  size_t pos = 0;
   String line;
+  line.reserve(512);
+  String left;
+  left.reserve(128);
+  String value;
+  value.reserve(384);
   EventDraft draft;
   bool inEvent = false;
 
-  while (readLogicalLine(stream, carry, line)) {
+  while (readLogicalLine(bodyPtr, bodyLen, pos, line)) {
     int colon = line.indexOf(':');
     if (colon < 0) continue;
-    String left = line.substring(0, colon);
-    String value = line.substring(colon + 1);
+    left = "";
+    value = "";
+    for (int i = 0; i < colon; i++) left += line[i];
+    for (size_t i = colon + 1; i < line.length(); i++) value += line[i];
 
     String upper = left;
     upper.toUpperCase();
@@ -230,8 +242,6 @@ std::vector<CalendarEvent> CalendarService::fetchEvents() {
     if (!inEvent) continue;
     applyProperty(draft, left, value);
   }
-
-  http.end();
 
   std::sort(events.begin(), events.end(),
             [](const CalendarEvent& a, const CalendarEvent& b) {
