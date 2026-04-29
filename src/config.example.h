@@ -18,6 +18,7 @@ const int NUM_FORECASTS = 4;
 constexpr const char *COMMUTE_START_EVA = "";
 constexpr const char *COMMUTE_DEST_EVA = "";
 const int COMMUTE_NUM_ROUTES = 5;
+const int COMMUTE_DEPARTURE_OFFSET_MIN = 10;  // query journeys departing now + offset
 
 // Timing
 const int UPDATE_INTERVAL_MS = 300000;         // active-hours refresh interval

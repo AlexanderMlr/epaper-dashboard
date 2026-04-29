@@ -42,6 +42,19 @@ String CommuteService::buildRequestUrl() const {
   url += "&stopovers=false&tickets=false&polylines=false";
   url += "&remarks=false&subStops=false&entrances=false&linesOfStops=false";
   url += "&pretty=false";
+
+  struct tm nowTm;
+  if (getLocalTime(&nowTm, 0)) {
+    time_t when = mktime(&nowTm) + COMMUTE_DEPARTURE_OFFSET_MIN * 60;
+    struct tm whenTm;
+    localtime_r(&when, &whenTm);
+    char buf[32];
+    strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", &whenTm);
+    String iso(buf);
+    iso.replace("+", "%2B");  // URL-encode tz offset sign
+    url += "&departure=" + iso;
+  }
+
   return url;
 }
 
