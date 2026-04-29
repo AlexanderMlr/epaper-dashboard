@@ -23,4 +23,5 @@ class WeatherRenderer {
   void drawHeader();
   void drawCurrentWeather(const WeatherData& weather);
   void drawForecastGrid(const std::vector<WeatherData>& forecast);
+  void drawCommuteRecommendation(const std::vector<WeatherData>& forecast);
 };

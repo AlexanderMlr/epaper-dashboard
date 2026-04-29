@@ -86,6 +86,27 @@ void WeatherRenderer::drawForecastGrid(
   }
 }
 
+void WeatherRenderer::drawCommuteRecommendation(
+    const std::vector<WeatherData>& forecast) {
+  bool bikeable = true;
+  for (size_t i = 0; i < forecast.size() && i < 4; i++) {
+    const WeatherData& w = forecast[i];
+    if (!w.isValid()) continue;
+    if (w.absolute_temperature < 10.0f || w.rain_probability >= 20.0f) {
+      bikeable = false;
+      break;
+    }
+  }
+
+  const char* recommendation = bikeable
+                                   ? "Good day for biking to work!"
+                                   : "Better take the train today.";
+
+  int32_t x = originX_ + 20;
+  int32_t y = originY_ + 200 + ICON_SIZE + 3 * TEXT_LINE_DISTANCE + 20;
+  write_string((GFXfont*)&FiraSans, recommendation, &x, &y, framebuffer_);
+}
+
 void WeatherRenderer::draw(const std::vector<WeatherData>& forecast) {
   if (forecast.empty()) {
     int32_t x = originX_ + 20;
@@ -101,4 +122,6 @@ void WeatherRenderer::draw(const std::vector<WeatherData>& forecast) {
   if (forecast.size() > 1) {
     drawForecastGrid(forecast);
   }
+
+  drawCommuteRecommendation(forecast);
 }
