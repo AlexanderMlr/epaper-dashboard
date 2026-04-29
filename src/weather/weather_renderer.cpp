@@ -51,7 +51,7 @@ void WeatherRenderer::drawCurrentWeather(const WeatherData& weather) {
   x = originX_ + iconX + ICON_SIZE;
   y = originY_ + iconY + TEXT_LINE_DISTANCE;
   String tempStr = weather.getTemperatureString() + " (felt as " +
-                   String((int)(weather.felt_temperature + 0.5f)) + "\xC2\xB0C)";
+                   String((int)(weather.felt_temperature + 0.5f)) + "°C)";
   write_string((GFXfont*)&FiraSans, tempStr.c_str(), &x, &y, framebuffer_);
 
   x = originX_ + iconX + ICON_SIZE;
@@ -99,8 +99,8 @@ void WeatherRenderer::drawCommuteRecommendation(
   }
 
   const char* recommendation = bikeable
-                                   ? "Good day for biking to work!"
-                                   : "Better take the train today.";
+                                   ? "A good day for biking!"
+                                   : "Better take the train.";
 
   int32_t x = originX_ + 20;
   int32_t y = originY_ + 200 + ICON_SIZE + 3 * TEXT_LINE_DISTANCE + 20;

@@ -122,7 +122,7 @@ void applyProperty(EventDraft& ev, const String& nameAndParams,
 
 // Reads one logical (unfolded) iCal line from the stream. Returns false at
 // EOF. Continuation lines (leading space/tab) are merged into the previous.
-bool readLogicalLine(Stream& s, String& carry, String& out) {
+bool readLogicalLine(Client& s, String& carry, String& out) {
   while (true) {
     // Block briefly for more bytes; bail when the connection is fully drained.
     while (!s.available()) {
@@ -183,7 +183,7 @@ std::vector<CalendarEvent> CalendarService::fetchEvents() {
   time_t now = time(nullptr);
   time_t windowEnd = now + (time_t)CALENDAR_LOOKAHEAD_DAYS * 86400;
 
-  Stream& stream = http.getStream();
+  WiFiClient& stream = http.getStream();
   String carry;
   String line;
   EventDraft draft;
