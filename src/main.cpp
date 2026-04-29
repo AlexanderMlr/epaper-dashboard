@@ -14,7 +14,8 @@
 #include "config.h"
 #include "display_manager.h"
 #include "epd_driver.h"
-#include "firasans.h"
+#include "footer_renderer.h"
+#include "power.h"
 #include "utilities.h"
 #include "weather/weather_renderer.h"
 #include "weather/weather_service.h"
@@ -42,21 +43,6 @@ bool connectToWiFi() {
   }
 }
 
-float readBatteryVoltage() {
-  epd_poweron();
-  delay(10);
-  uint16_t raw = analogRead(BATT_PIN);
-  epd_poweroff_all();
-  return ((float)raw / 4095.0f) * 2.0f * 3.3f * (1100.0f / 1000.0f);
-}
-
-int batteryPercent(float voltage) {
-  const float vMin = 3.3f;
-  const float vMax = 4.2f;
-  float pct = (voltage - vMin) / (vMax - vMin) * 100.0f;
-  return (int)constrain(pct, 0.0f, 100.0f);
-}
-
 bool isInQuietHours(const struct tm& t) {
   return (QUIET_HOURS_START < QUIET_HOURS_END)
       ? (t.tm_hour >= QUIET_HOURS_START && t.tm_hour < QUIET_HOURS_END)
@@ -70,23 +56,6 @@ uint64_t computeSleepMicros(bool haveTime, const struct tm& t) {
   const int intervalMin =
       isInQuietHours(t) ? QUIET_UPDATE_INTERVAL_MIN : UPDATE_INTERVAL_MIN;
   return (uint64_t)intervalMin * 60ULL * 1000000ULL;
-}
-
-void drawFooter(uint8_t* framebuffer, const struct tm& now, uint64_t sleepUs,
-                float batteryVoltage) {
-  struct tm next = now;
-  next.tm_sec += (int)(sleepUs / 1000000ULL);
-  mktime(&next);
-
-  char footer[96];
-  snprintf(footer, sizeof(footer),
-           "Updated %02d:%02d  |  Next update %02d:%02d  |  %d%% (%.2fV)",
-           now.tm_hour, now.tm_min, next.tm_hour, next.tm_min,
-           batteryPercent(batteryVoltage), batteryVoltage);
-
-  int32_t x = 20;
-  int32_t y = EPD_HEIGHT - 20;
-  write_string((GFXfont*)&FiraSans, footer, &x, &y, framebuffer);
 }
 
 void deepSleep(uint64_t sleepUs) {
@@ -163,7 +132,8 @@ void setup() {
                 batteryPercent(batteryVoltage));
 
   if (haveTime) {
-    drawFooter(display.getFramebuffer(), nowT, sleepUs, batteryVoltage);
+    FooterRenderer footer(display.getFramebuffer());
+    footer.draw(nowT, sleepUs, batteryVoltage, batteryPercent(batteryVoltage));
   }
 
   display.refresh();
