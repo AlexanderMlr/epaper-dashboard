@@ -21,12 +21,12 @@ const int COMMUTE_NUM_ROUTES = 5;
 const int COMMUTE_DEPARTURE_OFFSET_MIN = 10;  // query journeys departing now + offset
 
 // Timing
-const int UPDATE_INTERVAL_MS = 300000;         // active-hours refresh interval
-const int QUIET_UPDATE_INTERVAL_MS = 7200000;  // quiet-hours refresh interval (2h)
+const int UPDATE_INTERVAL_MIN = 5;             // active-hours refresh interval
+const int QUIET_UPDATE_INTERVAL_MIN = 120;     // quiet-hours refresh interval
 const int QUIET_HOURS_START = 23;              // local hour [0-23], inclusive
 const int QUIET_HOURS_END = 6;                 // local hour [0-23], exclusive
-const int WIFI_RETRY_SLEEP_MS = 30000;   // deep-sleep duration after WiFi failure
-const int COLD_BOOT_HOLDOFF_MS = 30000;  // reflash window on power-on / RST; skipped on timer wake
+const int WIFI_RETRY_SLEEP_SEC = 30;   // deep-sleep duration after WiFi failure
+const int COLD_BOOT_HOLDOFF_SEC = 30;  // reflash window on power-on / RST; skipped on timer wake
 
 // Display
 const int DISPLAY_WIDTH = EPD_WIDTH;

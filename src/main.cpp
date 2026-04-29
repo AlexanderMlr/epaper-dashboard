@@ -50,11 +50,11 @@ bool isInQuietHours(const struct tm& t) {
 
 uint64_t computeSleepMicros(bool haveTime, const struct tm& t) {
   if (!haveTime) {
-    return (uint64_t)UPDATE_INTERVAL_MS * 1000ULL;
+    return (uint64_t)UPDATE_INTERVAL_MIN * 60ULL * 1000000ULL;
   }
-  const int intervalMs =
-      isInQuietHours(t) ? QUIET_UPDATE_INTERVAL_MS : UPDATE_INTERVAL_MS;
-  return (uint64_t)intervalMs * 1000ULL;
+  const int intervalMin =
+      isInQuietHours(t) ? QUIET_UPDATE_INTERVAL_MIN : UPDATE_INTERVAL_MIN;
+  return (uint64_t)intervalMin * 60ULL * 1000000ULL;
 }
 
 void drawFooter(uint8_t* framebuffer, const struct tm& now, uint64_t sleepUs) {
@@ -86,10 +86,10 @@ void setup() {
   delay(1000);
 
   if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
-    Serial.printf("Cold boot: holding %d ms for reflash window...\n",
-                  COLD_BOOT_HOLDOFF_MS);
+    Serial.printf("Cold boot: holding %d s for reflash window...\n",
+                  COLD_BOOT_HOLDOFF_SEC);
     Serial.flush();
-    delay(COLD_BOOT_HOLDOFF_MS);
+    delay((uint32_t)COLD_BOOT_HOLDOFF_SEC * 1000UL);
   }
 
   Serial.println("Initializing display...");
@@ -97,12 +97,12 @@ void setup() {
   DisplayManager display;
   if (!display.initialize()) {
     Serial.println("Display initialization failed!");
-    deepSleep((uint64_t)WIFI_RETRY_SLEEP_MS * 1000ULL);
+    deepSleep((uint64_t)WIFI_RETRY_SLEEP_SEC * 1000000ULL);
   }
 
   if (!connectToWiFi()) {
     Serial.println("Cannot proceed without WiFi; sleeping before retry.");
-    deepSleep((uint64_t)WIFI_RETRY_SLEEP_MS * 1000ULL);
+    deepSleep((uint64_t)WIFI_RETRY_SLEEP_SEC * 1000000ULL);
   }
 
   configTime(3600, 3600, "pool.ntp.org");
