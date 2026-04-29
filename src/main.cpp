@@ -9,6 +9,8 @@
 #include <esp_sleep.h>
 #include <time.h>
 
+#include "calendar/calendar_renderer.h"
+#include "calendar/calendar_service.h"
 #include "commute/commute_renderer.h"
 #include "commute/commute_service.h"
 #include "config.h"
@@ -43,18 +45,18 @@ bool connectToWiFi() {
   }
 }
 
-bool isInQuietHours(const struct tm& t) {
-  return (QUIET_HOURS_START < QUIET_HOURS_END)
-      ? (t.tm_hour >= QUIET_HOURS_START && t.tm_hour < QUIET_HOURS_END)
-      : (t.tm_hour >= QUIET_HOURS_START || t.tm_hour < QUIET_HOURS_END);
+bool isInCommuteHours(const struct tm& t) {
+  return (COMMUTE_HOURS_START < COMMUTE_HOURS_END)
+      ? (t.tm_hour >= COMMUTE_HOURS_START && t.tm_hour < COMMUTE_HOURS_END)
+      : (t.tm_hour >= COMMUTE_HOURS_START || t.tm_hour < COMMUTE_HOURS_END);
 }
 
 uint64_t computeSleepMicros(bool haveTime, const struct tm& t) {
   if (!haveTime) {
     return (uint64_t)UPDATE_INTERVAL_MIN * 60ULL * 1000000ULL;
   }
-  const int intervalMin =
-      isInQuietHours(t) ? QUIET_UPDATE_INTERVAL_MIN : UPDATE_INTERVAL_MIN;
+  const int intervalMin = isInCommuteHours(t) ? UPDATE_INTERVAL_MIN
+                                              : OFF_HOURS_UPDATE_INTERVAL_MIN;
   return (uint64_t)intervalMin * 60ULL * 1000000ULL;
 }
 
@@ -102,19 +104,24 @@ void setup() {
 
   struct tm nowT{};
   bool haveTime = getLocalTime(&nowT, 1000);
-  bool inQuiet = haveTime && isInQuietHours(nowT);
+  bool inCommute = haveTime && isInCommuteHours(nowT);
   uint64_t sleepUs = computeSleepMicros(haveTime, nowT);
 
   Serial.println("Fetching data...");
   WeatherService weatherService;
   std::vector<WeatherData> forecast = weatherService.fetchForecast();
   std::vector<CommuteRoute> routes;
-  if (!inQuiet) {
+  std::vector<CalendarEvent> events;
+  if (inCommute) {
     CommuteService commuteService;
     routes = commuteService.fetchRoutes();
+  } else {
+    CalendarService calendarService;
+    events = calendarService.fetchEvents();
   }
-  Serial.printf("Fetched %u forecasts, %u routes\n",
-                (unsigned)forecast.size(), (unsigned)routes.size());
+  Serial.printf("Fetched %u forecasts, %u routes, %u events\n",
+                (unsigned)forecast.size(), (unsigned)routes.size(),
+                (unsigned)events.size());
 
   display.clear();
 
@@ -123,9 +130,15 @@ void setup() {
                             EPD_HEIGHT);
   weatherUI.draw(forecast);
 
-  CommuteRenderer commuteUI(display.getFramebuffer(), halfWidth, 0, halfWidth,
-                            EPD_HEIGHT);
-  commuteUI.draw(routes, inQuiet);
+  if (inCommute) {
+    CommuteRenderer commuteUI(display.getFramebuffer(), halfWidth, 0,
+                              halfWidth, EPD_HEIGHT);
+    commuteUI.draw(routes, false);
+  } else {
+    CalendarRenderer calendarUI(display.getFramebuffer(), halfWidth, 0,
+                                halfWidth, EPD_HEIGHT);
+    calendarUI.draw(events);
+  }
 
   float batteryVoltage = readBatteryVoltage();
   Serial.printf("Battery: %.2fV (%d%%)\n", batteryVoltage,

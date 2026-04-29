@@ -19,12 +19,18 @@ constexpr const char *COMMUTE_START_EVA = "";
 constexpr const char *COMMUTE_DEST_EVA = "";
 const int COMMUTE_NUM_ROUTES = 5;
 const int COMMUTE_DEPARTURE_OFFSET_MIN = 10;  // query journeys departing now + offset
+const int COMMUTE_HOURS_START = 7;            // local hour [0-23], inclusive
+const int COMMUTE_HOURS_END = 9;              // local hour [0-23], exclusive
+
+// Calendar (Google Calendar private ICS link)
+// get private link in iCal format from your google calendar settings
+constexpr const char *CALENDAR_ICS_URL = "";
+const int CALENDAR_NUM_EVENTS = 6;
+const int CALENDAR_LOOKAHEAD_DAYS = 14;
 
 // Timing
-const int UPDATE_INTERVAL_MIN = 5;             // active-hours refresh interval
-const int QUIET_UPDATE_INTERVAL_MIN = 120;     // quiet-hours refresh interval
-const int QUIET_HOURS_START = 23;              // local hour [0-23], inclusive
-const int QUIET_HOURS_END = 6;                 // local hour [0-23], exclusive
+const int UPDATE_INTERVAL_MIN = 5;             // commute-hours refresh interval
+const int OFF_HOURS_UPDATE_INTERVAL_MIN = 120; // refresh interval outside commute hours
 const int WIFI_RETRY_SLEEP_SEC = 30;   // deep-sleep duration after WiFi failure
 const int COLD_BOOT_HOLDOFF_SEC = 30;  // reflash window on power-on / RST; skipped on timer wake
 
