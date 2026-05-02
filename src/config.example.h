@@ -8,8 +8,7 @@ namespace Config {
 constexpr const char *WIFI_SSID = "";
 constexpr const char *WIFI_PASSWORD = "";
 
-// Weather (OpenWeatherMap)
-constexpr const char *WEATHER_API_KEY = "";
+// Weather (Open-Meteo)
 constexpr const char *LOCATION_LATITUDE = "";
 constexpr const char *LOCATION_LONGITUDE = "";
 const int NUM_FORECASTS = 4;

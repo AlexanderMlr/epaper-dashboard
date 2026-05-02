@@ -111,7 +111,7 @@ void setup() {
 
   Serial.println("Fetching data...");
   WeatherService weatherService;
-  std::vector<WeatherData> forecast = weatherService.fetchForecast();
+  WeatherForecast weather = weatherService.fetch();
   std::vector<CommuteRoute> routes;
   std::vector<CalendarEvent> events;
   if (inCommute) {
@@ -122,7 +122,7 @@ void setup() {
     events = calendarService.fetchEvents();
   }
   Serial.printf("Fetched %u forecasts, %u routes, %u events\n",
-                (unsigned)forecast.size(), (unsigned)routes.size(),
+                (unsigned)weather.entries.size(), (unsigned)routes.size(),
                 (unsigned)events.size());
 
   display.clear();
@@ -130,7 +130,7 @@ void setup() {
   const int halfWidth = EPD_WIDTH / 2;
   WeatherRenderer weatherUI(display.getFramebuffer(), 0, 0, halfWidth,
                             EPD_HEIGHT);
-  weatherUI.draw(forecast, inCommute);
+  weatherUI.draw(weather.entries, inCommute, weather.sun);
 
   if (inCommute) {
     CommuteRenderer commuteUI(display.getFramebuffer(), halfWidth, 0,

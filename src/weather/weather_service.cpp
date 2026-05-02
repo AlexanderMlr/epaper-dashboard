@@ -2,31 +2,77 @@
 
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <time.h>
 
 #include "../config.h"
-#include "weather_data.h"
+
+namespace {
+
+// WMO weather code -> (characterization matching weather_renderer's icon
+// branches, short description).
+struct CodeMap {
+  const char* characterization;
+  const char* description;
+};
+
+CodeMap mapWeatherCode(int code) {
+  if (code == 0) return {"Clear", "clear sky"};
+  if (code == 1) return {"Clear", "mostly clear"};
+  if (code == 2) return {"Clouds", "partly cloudy"};
+  if (code == 3) return {"Clouds", "overcast"};
+  if (code == 45 || code == 48) return {"Clouds", "fog"};
+  if (code >= 51 && code <= 57) return {"Drizzle", "drizzle"};
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82))
+    return {"Rain", "rain"};
+  if ((code >= 71 && code <= 77) || code == 85 || code == 86)
+    return {"Snow", "snow"};
+  if (code >= 95) return {"Thunderstorm", "thunderstorm"};
+  return {"Clouds", "unknown"};
+}
+
+String isoToDisplay(const String& iso) {
+  // "2026-05-03T14:00" -> "2026-05-03 14:00:00"
+  String s = iso;
+  int t = s.indexOf('T');
+  if (t >= 0) s.setCharAt(t, ' ');
+  if (s.length() == 16) s += ":00";
+  return s;
+}
+
+String extractClockTime(const String& iso) {
+  int t = iso.indexOf('T');
+  if (t < 0 || t + 6 > (int)iso.length()) return String();
+  return iso.substring(t + 1, t + 6);
+}
+
+int findStartIndex(JsonArray timeArr) {
+  time_t now = time(nullptr);
+  struct tm lt;
+  localtime_r(&now, &lt);
+  char prefix[14];
+  // Match "YYYY-MM-DDTHH" against ISO entries.
+  strftime(prefix, sizeof(prefix), "%Y-%m-%dT%H", &lt);
+  for (size_t i = 0; i < timeArr.size(); i++) {
+    String s = timeArr[i].as<String>();
+    if (s.startsWith(prefix)) return (int)i;
+  }
+  return 0;
+}
+
+}  // namespace
 
 String WeatherService::buildRequestUrl() const {
-  return String("http://api.openweathermap.org/data/2.5/forecast?") +
-         "appid=" + WEATHER_API_KEY + "&units=metric&cnt=" + NUM_FORECASTS +
-         "&lat=" + LOCATION_LATITUDE + "&lon=" + LOCATION_LONGITUDE;
+  return String("https://api.open-meteo.com/v1/forecast?") +
+         "latitude=" + LOCATION_LATITUDE +
+         "&longitude=" + LOCATION_LONGITUDE +
+         "&hourly=temperature_2m,apparent_temperature,precipitation_probability,"
+         "weathercode" +
+         "&daily=uv_index_max,sunrise,sunset" +
+         "&timezone=auto&forecast_days=2";
 }
 
-WeatherData WeatherService::parseWeatherEntry(const JsonObject& entry) const {
-  WeatherData weather;
-  weather.characterization = entry["weather"][0]["main"].as<String>();
-  weather.description = entry["weather"][0]["description"].as<String>();
-  weather.absolute_temperature = entry["main"]["temp"].as<float>();
-  weather.felt_temperature = entry["main"]["feels_like"].as<float>();
-  weather.rain_probability = entry["pop"].as<float>() * 100.0f;
-  weather.datetime = entry["dt"].as<int>();
-  weather.datetime_str = entry["dt_txt"].as<String>();
-  return weather;
-}
-
-std::vector<WeatherData> WeatherService::fetchForecast() {
-  std::vector<WeatherData> forecasts;
-  forecasts.reserve(NUM_FORECASTS);
+WeatherForecast WeatherService::fetch() {
+  WeatherForecast result;
 
   HTTPClient http;
   http.begin(buildRequestUrl());
@@ -35,23 +81,50 @@ std::vector<WeatherData> WeatherService::fetchForecast() {
   const int httpCode = http.GET();
   Serial.printf("Weather API response code: %d\n", httpCode);
 
-  if (httpCode == HTTP_CODE_OK) {
-    const String payload = http.getString();
-    JsonDocument apiResponse;
-
-    DeserializationError error = deserializeJson(apiResponse, payload);
-    if (error == DeserializationError::Ok) {
-      JsonArray list = apiResponse["list"].as<JsonArray>();
-      for (JsonVariant item : list) {
-        forecasts.push_back(parseWeatherEntry(item.as<JsonObject>()));
-      }
-    } else {
-      Serial.printf("JSON parsing failed: %s\n", error.c_str());
-    }
-  } else {
+  if (httpCode != HTTP_CODE_OK) {
     Serial.printf("HTTP request failed with code: %d\n", httpCode);
+    http.end();
+    return result;
   }
 
+  const String payload = http.getString();
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, payload);
   http.end();
-  return forecasts;
+
+  if (err != DeserializationError::Ok) {
+    Serial.printf("JSON parsing failed: %s\n", err.c_str());
+    return result;
+  }
+
+  JsonObject hourly = doc["hourly"].as<JsonObject>();
+  JsonArray times = hourly["time"].as<JsonArray>();
+  JsonArray temps = hourly["temperature_2m"].as<JsonArray>();
+  JsonArray feels = hourly["apparent_temperature"].as<JsonArray>();
+  JsonArray pops = hourly["precipitation_probability"].as<JsonArray>();
+  JsonArray codes = hourly["weathercode"].as<JsonArray>();
+
+  result.entries.reserve(NUM_FORECASTS);
+  const int start = findStartIndex(times);
+  for (int n = 0; n < NUM_FORECASTS; n++) {
+    const int idx = start + n * 3;
+    if (idx >= (int)times.size()) break;
+    WeatherData w;
+    String iso = times[idx].as<String>();
+    w.datetime_str = isoToDisplay(iso);
+    w.absolute_temperature = temps[idx].as<float>();
+    w.felt_temperature = feels[idx].as<float>();
+    w.rain_probability = pops[idx].as<float>();
+    CodeMap m = mapWeatherCode(codes[idx].as<int>());
+    w.characterization = m.characterization;
+    w.description = m.description;
+    result.entries.push_back(w);
+  }
+
+  JsonObject daily = doc["daily"].as<JsonObject>();
+  result.sun.uvIndexMax = daily["uv_index_max"][0].as<float>();
+  result.sun.sunrise = extractClockTime(daily["sunrise"][0].as<String>());
+  result.sun.sunset = extractClockTime(daily["sunset"][0].as<String>());
+
+  return result;
 }

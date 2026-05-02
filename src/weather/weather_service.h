@@ -5,13 +5,18 @@
 
 #include <vector>
 
+#include "sun_data.h"
 #include "weather_data.h"
+
+struct WeatherForecast {
+  std::vector<WeatherData> entries;
+  SunData sun;
+};
 
 class WeatherService {
  private:
   String buildRequestUrl() const;
-  WeatherData parseWeatherEntry(const JsonObject& entry) const;
 
  public:
-  std::vector<WeatherData> fetchForecast();
+  WeatherForecast fetch();
 };
