@@ -20,5 +20,5 @@ class CalendarRenderer {
   int height_;
 
   void drawHeader();
-  void drawEvent(const CalendarEvent& ev, int y, bool sameDayAsPrev);
+  void drawEvent(const CalendarEvent& ev, int y);
 };

@@ -21,6 +21,7 @@ constexpr int EVENT_SPACING = 80;
 constexpr size_t MAX_DISPLAYED_EVENTS = 5;
 constexpr int COL_DATE = 10;
 constexpr int COL_TIME = 180;
+constexpr int COL_SUMMARY = 40;
 constexpr size_t SUMMARY_MAX_CHARS = 28;
 
 String formatDate(const struct tm& t) {
@@ -45,20 +46,17 @@ void CalendarRenderer::drawHeader() {
   write_string((GFXfont*)&FiraSans, "Calendar", &x, &y, framebuffer_);
 }
 
-void CalendarRenderer::drawEvent(const CalendarEvent& ev, int y,
-                                 bool sameDayAsPrev) {
+void CalendarRenderer::drawEvent(const CalendarEvent& ev, int y) {
   const int32_t baseY = originY_ + y;
   int32_t x, textY;
 
   struct tm local;
   localtime_r(&ev.start, &local);
 
-  if (!sameDayAsPrev) {
-    x = originX_ + COL_DATE;
-    textY = baseY;
-    String date = formatDate(local);
-    write_string((GFXfont*)&FiraSans, date.c_str(), &x, &textY, framebuffer_);
-  }
+  x = originX_ + COL_DATE;
+  textY = baseY;
+  String date = formatDate(local);
+  write_string((GFXfont*)&FiraSans, date.c_str(), &x, &textY, framebuffer_);
 
   x = originX_ + COL_TIME;
   textY = baseY;
@@ -69,7 +67,7 @@ void CalendarRenderer::drawEvent(const CalendarEvent& ev, int y,
   if (summary.length() > SUMMARY_MAX_CHARS) {
     summary = summary.substring(0, SUMMARY_MAX_CHARS - 1) + String("…");
   }
-  x = originX_ + COL_DATE;
+  x = originX_ + COL_SUMMARY;
   textY = baseY + INNER_LINE_DIST;
   write_string((GFXfont*)&FiraSans, summary.c_str(), &x, &textY, framebuffer_);
 }
@@ -86,14 +84,7 @@ void CalendarRenderer::draw(const std::vector<CalendarEvent>& events) {
   }
 
   const size_t n = std::min(events.size(), MAX_DISPLAYED_EVENTS);
-  int prevYday = -1, prevYear = -1;
   for (size_t i = 0; i < n; i++) {
-    struct tm local;
-    localtime_r(&events[i].start, &local);
-    bool sameDay =
-        (local.tm_yday == prevYday) && (local.tm_year == prevYear);
-    drawEvent(events[i], EVENT_START_Y + (int)i * EVENT_SPACING, sameDay);
-    prevYday = local.tm_yday;
-    prevYear = local.tm_year;
+    drawEvent(events[i], EVENT_START_Y + (int)i * EVENT_SPACING);
   }
 }
