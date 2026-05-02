@@ -114,7 +114,7 @@ void WeatherRenderer::drawSunInfo(const SunData& sun) {
   int32_t y = originY_ + 200 + ICON_SIZE + 3 * TEXT_LINE_DISTANCE + 20;
   String line = "Sun: " + sun.sunrise + " - " + sun.sunset;
   if (sun.uvIndexMax >= 0.0f) {
-    line += "  |  UV " + String((int)(sun.uvIndexMax + 0.5f));
+    line += " | UV " + String((int)(sun.uvIndexMax + 0.5f));
   }
   write_string((GFXfont*)&FiraSans, line.c_str(), &x, &y, framebuffer_);
 }

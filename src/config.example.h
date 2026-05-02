@@ -34,7 +34,8 @@ const int WIFI_RETRY_SLEEP_SEC = 30;   // deep-sleep duration after WiFi failure
 const int COLD_BOOT_HOLDOFF_SEC = 20;  // reflash window on power-on / RST; skipped on timer wake
 
 // Battery
-const float BATTERY_VOLTAGE_CALIBRATION = 1.1f;  // factor to adjust for board-specific inaccuracies
+// factor to align board voltage reading with ground truth measurement
+const float BATTERY_VOLTAGE_CALIBRATION = 1.1f;
 
 // Display
 const int DISPLAY_WIDTH = EPD_WIDTH;
