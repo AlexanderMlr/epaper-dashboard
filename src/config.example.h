@@ -29,10 +29,13 @@ const int CALENDAR_NUM_EVENTS = 6;
 const int CALENDAR_LOOKAHEAD_DAYS = 14;
 
 // Timing
-const int UPDATE_INTERVAL_MIN = 5;             // commute-hours refresh interval
+const int COMMUTE_UPDATE_INTERVAL_MIN = 10;    // commute-hours refresh interval
 const int OFF_HOURS_UPDATE_INTERVAL_MIN = 120; // refresh interval outside commute hours
 const int WIFI_RETRY_SLEEP_SEC = 30;   // deep-sleep duration after WiFi failure
 const int COLD_BOOT_HOLDOFF_SEC = 20;  // reflash window on power-on / RST; skipped on timer wake
+
+// Battery
+const float BATTERY_VOLTAGE_CALIBRATION = 1.1f;  // factor to adjust for board-specific inaccuracies
 
 // Display
 const int DISPLAY_WIDTH = EPD_WIDTH;

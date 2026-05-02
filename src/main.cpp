@@ -53,9 +53,9 @@ bool isInCommuteHours(const struct tm& t) {
 
 uint64_t computeSleepMicros(bool haveTime, const struct tm& t) {
   if (!haveTime) {
-    return (uint64_t)UPDATE_INTERVAL_MIN * 60ULL * 1000000ULL;
+    return (uint64_t)COMMUTE_UPDATE_INTERVAL_MIN * 60ULL * 1000000ULL;
   }
-  const int intervalMin = isInCommuteHours(t) ? UPDATE_INTERVAL_MIN
+  const int intervalMin = isInCommuteHours(t) ? COMMUTE_UPDATE_INTERVAL_MIN
                                               : OFF_HOURS_UPDATE_INTERVAL_MIN;
   return (uint64_t)intervalMin * 60ULL * 1000000ULL;
 }

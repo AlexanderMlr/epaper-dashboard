@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 
+#include "config.h"
 #include "epd_driver.h"
 #include "utilities.h"
 
@@ -10,10 +11,10 @@ float readBatteryVoltage() {
   delay(10);
   uint16_t raw = analogRead(BATT_PIN);
   epd_poweroff_all();
-  return ((float)raw / 4095.0f) * 2.0f * 3.3f * (1100.0f / 1000.0f);
+  return ((float)raw / 4095.0f) * 2.0f * 3.3f * BATTERY_VOLTAGE_CALIBRATION;
 }
 
-int batteryPercent(float voltage) {
+int batteryPercent(float voltage) { 
   const float vMin = 3.3f;
   const float vMax = 4.2f;
   float pct = (voltage - vMin) / (vMax - vMin) * 100.0f;
