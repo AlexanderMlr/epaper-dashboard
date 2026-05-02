@@ -46,6 +46,8 @@ bool connectToWiFi() {
 }
 
 bool isInCommuteHours(const struct tm& t) {
+  const bool isWeekday = (t.tm_wday >= 1 && t.tm_wday <= 5);
+  if (!isWeekday) return false;
   return (COMMUTE_HOURS_START < COMMUTE_HOURS_END)
       ? (t.tm_hour >= COMMUTE_HOURS_START && t.tm_hour < COMMUTE_HOURS_END)
       : (t.tm_hour >= COMMUTE_HOURS_START || t.tm_hour < COMMUTE_HOURS_END);
