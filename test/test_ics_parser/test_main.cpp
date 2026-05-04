@@ -22,16 +22,29 @@ std::string wrap(const std::string& vevents) {
 }
 
 std::string vevent(const std::string& summary, const std::string& dtstart,
-                   const std::string& dtend = "",
-                   const std::string& extra = "") {
+                   const std::string& dtend = "") {
   std::string s = "BEGIN:VEVENT\r\n";
   s += "UID:" + summary + "@test\r\n";
   s += "SUMMARY:" + summary + "\r\n";
   s += "DTSTART:" + dtstart + "\r\n";
   if (!dtend.empty()) s += "DTEND:" + dtend + "\r\n";
-  if (!extra.empty()) s += extra;
   s += "END:VEVENT\r\n";
   return s;
+}
+
+std::string slurpFile(const std::string& path) {
+  std::ifstream f(path, std::ios::binary);
+  if (!f) return std::string();
+  std::ostringstream ss;
+  ss << f.rdbuf();
+  return ss.str();
+}
+
+// Loads the real.ics fixture or returns empty if missing. Tests should call
+// TEST_IGNORE_MESSAGE on an empty result so CI without the fixture still
+// passes.
+std::string loadRealFixture() {
+  return slurpFile(std::string(FIXTURE_DIR) + "/real.ics");
 }
 
 }  // namespace
@@ -120,16 +133,14 @@ void test_events_sorted_by_start() {
   TEST_ASSERT_EQUAL_STRING("C", out[2].summary.c_str());
 }
 
-// This is the regression test for the production bug: 506 VEVENT blocks in
-// the body, only 187 reaching the END handler. Build a synthetic body with
-// many blocks and assert the parser sees every one.
+// Asserts the parser handles a body with hundreds of VEVENTs without losing
+// any to buffer state, off-by-ones, or accumulator bugs. Events are spread
+// across years so most fall outside the lookahead window — we only check
+// that every BEGIN/END pair is seen, not that they're kept.
 void test_many_vevents_all_seen() {
   std::string body;
   for (int i = 0; i < 506; i++) {
     char dt[20];
-    // Spread across years so most fall outside the 14-day window — we only
-    // care that the parser SEES every BEGIN/END:VEVENT, not that they're
-    // kept.
     snprintf(dt, sizeof(dt), "20%02d0101T100000Z", 20 + (i % 30));
     char name[16];
     snprintf(name, sizeof(name), "E%04d", i);
@@ -173,22 +184,11 @@ void test_valarm_inside_vevent_does_not_swallow_end() {
   TEST_ASSERT_EQUAL(1, (int)out.size());
 }
 
-std::string slurpFile(const std::string& path) {
-  std::ifstream f(path, std::ios::binary);
-  if (!f) return std::string();
-  std::ostringstream ss;
-  ss << f.rdbuf();
-  return ss.str();
-}
-
-// Mirrors what calendar_service.cpp does on-device: lookahead=14, max=6,
-// "now" set to today. This proves the parser would return events for the
-// real ICS body with production config. If this passes but the device shows
-// "No upcoming events", the divergence is in the HTTP fetch or in
-// time(nullptr) on-device, not in the parser.
+// Runs the parser against the real fixture with the same config the device
+// uses, and asserts events come out. Catches regressions where production
+// config silently filters everything (e.g. window math, sort/trim bugs).
 void test_real_fixture_with_production_config() {
-  std::string path = std::string(FIXTURE_DIR) + "/real.ics";
-  std::string body = slurpFile(path);
+  std::string body = loadRealFixture();
   if (body.empty()) {
     TEST_IGNORE_MESSAGE("real.ics fixture not present; skipping");
     return;
@@ -210,18 +210,17 @@ void test_real_fixture_with_production_config() {
 }
 
 void test_real_fixture_all_vevents_seen() {
-  std::string path = std::string(FIXTURE_DIR) + "/real.ics";
-  std::string body = slurpFile(path);
+  std::string body = loadRealFixture();
   if (body.empty()) {
     TEST_IGNORE_MESSAGE("real.ics fixture not present; skipping");
     return;
   }
   IcsParseStats stats;
   parseIcs(body.c_str(), body.size(), kNow, 14, 1000, &stats);
-  printf("[real.ics] bytes=%zu lines=%d BEGIN=%d END=%d "
-         "no-dtstart=%d parse-fail=%d outside-window=%d\n",
-         body.size(), stats.logicalLines, stats.beginVevent, stats.endVevent,
-         stats.noDtstart, stats.parseFail, stats.outsideWindow);
+  printf("[real.ics] bytes=%zu BEGIN=%d END=%d no-dtstart=%d "
+         "parse-fail=%d outside-window=%d\n",
+         body.size(), stats.beginVevent, stats.endVevent, stats.noDtstart,
+         stats.parseFail, stats.outsideWindow);
   TEST_ASSERT_EQUAL_MESSAGE(506, stats.beginVevent,
                             "parser should see every BEGIN:VEVENT");
   TEST_ASSERT_EQUAL_MESSAGE(stats.beginVevent, stats.endVevent,

@@ -6,6 +6,11 @@
 #include "../config.h"
 #include "ics_parser.h"
 
+namespace {
+constexpr size_t kInitialCapacity = 64 * 1024;
+constexpr unsigned long kReadTimeoutMs = 20000;
+}  // namespace
+
 std::vector<CalendarEvent> CalendarService::fetchEvents() {
   std::vector<CalendarEvent> events;
 
@@ -24,23 +29,71 @@ std::vector<CalendarEvent> CalendarService::fetchEvents() {
 
   Serial.println("Fetching calendar ICS...");
   int code = http.GET();
-  Serial.printf("Calendar response code: %d (size=%d)\n", code,
-                http.getSize());
+  int contentLength = http.getSize();
+  Serial.printf("Calendar response code: %d (size=%d)\n", code, contentLength);
   if (code != HTTP_CODE_OK) {
     http.end();
     return events;
   }
 
-  // getString() decodes chunked Transfer-Encoding (which Google's ICS
-  // endpoint uses); reading the raw stream would block on chunk metadata.
-  String body = http.getString();
+  // Buffer the body in PSRAM rather than the default heap: the body is
+  // ~180 KB and the internal D-RAM heap is fragmented enough after Wi-Fi/TLS
+  // setup that a single contiguous allocation that large would silently
+  // truncate. Capacity grows on demand because Google's ICS endpoint uses
+  // chunked transfer encoding, so Content-Length is usually -1.
+  size_t cap = contentLength > 0 ? (size_t)contentLength + 1 : kInitialCapacity;
+  size_t got = 0;
+  char* body = (char*)ps_malloc(cap);
+  if (!body) {
+    Serial.printf("ps_malloc(%u) failed (psram free=%u)\n", (unsigned)cap,
+                  (unsigned)ESP.getFreePsram());
+    http.end();
+    return events;
+  }
+
+  WiFiClient* stream = http.getStreamPtr();
+  const unsigned long deadline = millis() + kReadTimeoutMs;
+  bool readError = false;
+  while (millis() < deadline) {
+    int avail = stream->available();
+    if (avail <= 0) {
+      if (!http.connected()) break;
+      delay(5);
+      continue;
+    }
+    if (got + (size_t)avail + 1 > cap) {
+      size_t newCap = cap * 2;
+      while (got + (size_t)avail + 1 > newCap) newCap *= 2;
+      char* grown = (char*)ps_realloc(body, newCap);
+      if (!grown) {
+        Serial.printf("ps_realloc(%u) failed\n", (unsigned)newCap);
+        readError = true;
+        break;
+      }
+      body = grown;
+      cap = newCap;
+    }
+    int n = stream->readBytes(body + got, avail);
+    if (n > 0) got += (size_t)n;
+  }
+  body[got] = '\0';
   http.end();
-  Serial.printf("ICS body length: %u, free heap: %u\n",
-                (unsigned)body.length(), (unsigned)ESP.getFreeHeap());
+
+  Serial.printf("ICS body: got=%u cap=%u psram free=%u\n", (unsigned)got,
+                (unsigned)cap, (unsigned)ESP.getFreePsram());
+
+  const bool truncated =
+      contentLength > 0 && got < (size_t)contentLength;
+  if (readError || got == 0 || truncated) {
+    Serial.println("Body read failed or truncated, skipping parse");
+    free(body);
+    return events;
+  }
 
   IcsParseStats stats;
-  auto parsed = parseIcs(body.c_str(), body.length(), time(nullptr),
-                         CALENDAR_LOOKAHEAD_DAYS, CALENDAR_NUM_EVENTS, &stats);
+  auto parsed = parseIcs(body, got, time(nullptr), CALENDAR_LOOKAHEAD_DAYS,
+                         CALENDAR_NUM_EVENTS, &stats);
+  free(body);
 
   events.reserve(parsed.size());
   for (auto& p : parsed) {
@@ -53,9 +106,9 @@ std::vector<CalendarEvent> CalendarService::fetchEvents() {
   }
 
   Serial.printf(
-      "Parsed %u events (lines=%d, BEGIN:VEVENT=%d, END:VEVENT=%d, "
-      "no-dtstart=%d, parse-fail=%d, outside-window=%d)\n",
-      (unsigned)events.size(), stats.logicalLines, stats.beginVevent,
-      stats.endVevent, stats.noDtstart, stats.parseFail, stats.outsideWindow);
+      "Parsed %u events (BEGIN:VEVENT=%d, END:VEVENT=%d, no-dtstart=%d, "
+      "parse-fail=%d, outside-window=%d)\n",
+      (unsigned)events.size(), stats.beginVevent, stats.endVevent,
+      stats.noDtstart, stats.parseFail, stats.outsideWindow);
   return events;
 }

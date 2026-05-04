@@ -43,7 +43,7 @@ String formatTime(const struct tm& t) {
 void CalendarRenderer::drawHeader() {
   int32_t x = originX_ + 10;
   int32_t y = originY_ + TITLE_Y;
-  write_string((GFXfont*)&FiraSans, "Calendar", &x, &y, framebuffer_);
+  write_string((GFXfont*)&FiraSans, "Calendar Events", &x, &y, framebuffer_);
 }
 
 void CalendarRenderer::drawEvent(const CalendarEvent& ev, int y) {
