@@ -75,7 +75,7 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
-  if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
+  if (esp_reset_reason() != ESP_RST_DEEPSLEEP) {
     Serial.printf("Cold boot: holding %d s for reflash window...\n",
                   COLD_BOOT_HOLDOFF_SEC);
     Serial.flush();
