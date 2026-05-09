@@ -16,7 +16,7 @@ const int NUM_FORECASTS = 4;
 // Commute (bahn.expert)
 constexpr const char *COMMUTE_START_EVA = "";
 constexpr const char *COMMUTE_DEST_EVA = "";
-const int COMMUTE_NUM_ROUTES = 5;
+const int COMMUTE_NUM_ROUTES = 5; // limited to 5 due to screen size
 const int COMMUTE_DEPARTURE_OFFSET_MIN = 10;  // query journeys departing now + offset
 const int COMMUTE_HOURS_START = 7;            // local hour [0-23], inclusive
 const int COMMUTE_HOURS_END = 9;              // local hour [0-23], exclusive

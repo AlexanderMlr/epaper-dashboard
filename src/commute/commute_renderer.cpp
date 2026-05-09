@@ -1,7 +1,5 @@
 #include "commute_renderer.h"
 
-#include <algorithm>
-
 #include "../config.h"
 #include "firasans.h"
 
@@ -18,7 +16,6 @@ constexpr int TITLE_Y = 50;
 constexpr int ROUTE_START_Y = 105;
 constexpr int INNER_LINE_DIST = 35;
 constexpr int ROUTE_SPACING = 80;
-constexpr size_t MAX_DISPLAYED_ROUTES = 5;
 
 // Fixed columns on line 1 keep "->" aligned across rows regardless of delay.
 constexpr int COL_DEP = 10;
@@ -99,8 +96,7 @@ void CommuteRenderer::draw(const std::vector<CommuteRoute>& routes,
 
   drawHeader();
 
-  const size_t n = std::min(routes.size(), MAX_DISPLAYED_ROUTES);
-  for (size_t i = 0; i < n; i++) {
+  for (size_t i = 0; i < routes.size(); i++) {
     drawRoute(routes[i], ROUTE_START_Y + (int)i * ROUTE_SPACING);
   }
 }

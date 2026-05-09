@@ -1,7 +1,5 @@
 #include "calendar_renderer.h"
 
-#include <algorithm>
-
 #include "../config.h"
 #include "firasans.h"
 
@@ -18,7 +16,6 @@ constexpr int TITLE_Y = 50;
 constexpr int EVENT_START_Y = 105;
 constexpr int INNER_LINE_DIST = 35;
 constexpr int EVENT_SPACING = 80;
-constexpr size_t MAX_DISPLAYED_EVENTS = 5;
 constexpr int COL_DATE = 10;
 constexpr int COL_TIME = 180;
 constexpr int COL_SUMMARY = 40;
@@ -83,8 +80,7 @@ void CalendarRenderer::draw(const std::vector<CalendarEvent>& events) {
     return;
   }
 
-  const size_t n = std::min(events.size(), MAX_DISPLAYED_EVENTS);
-  for (size_t i = 0; i < n; i++) {
+  for (size_t i = 0; i < events.size(); i++) {
     drawEvent(events[i], EVENT_START_Y + (int)i * EVENT_SPACING);
   }
 }
