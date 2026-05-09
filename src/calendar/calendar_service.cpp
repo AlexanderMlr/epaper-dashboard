@@ -107,8 +107,10 @@ std::vector<CalendarEvent> CalendarService::fetchEvents() {
 
   Serial.printf(
       "Parsed %u events (BEGIN:VEVENT=%d, END:VEVENT=%d, no-dtstart=%d, "
-      "parse-fail=%d, outside-window=%d)\n",
+      "parse-fail=%d, outside-window=%d, rrule-expanded=%d, "
+      "rrule-capped=%d)\n",
       (unsigned)events.size(), stats.beginVevent, stats.endVevent,
-      stats.noDtstart, stats.parseFail, stats.outsideWindow);
+      stats.noDtstart, stats.parseFail, stats.outsideWindow,
+      stats.recurrenceExpanded, stats.recurrenceCapped);
   return events;
 }

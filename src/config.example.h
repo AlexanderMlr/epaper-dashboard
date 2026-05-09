@@ -24,7 +24,7 @@ const int COMMUTE_HOURS_END = 9;              // local hour [0-23], exclusive
 // Calendar (Google Calendar private ICS link)
 // get private link in iCal format from your google calendar settings
 constexpr const char *CALENDAR_ICS_URL = "";
-const int CALENDAR_NUM_EVENTS = 6;
+const int CALENDAR_NUM_EVENTS = 5; // limited to 5 due to screen size
 const int CALENDAR_LOOKAHEAD_DAYS = 14;
 
 // Timing

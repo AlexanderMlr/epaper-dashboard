@@ -236,6 +236,213 @@ void test_dtstart_with_tzid_parsed_as_local() {
   TEST_ASSERT_EQUAL(1, (int)out.size());
 }
 
+// Daily standup that started a year ago should yield ~14 occurrences for the
+// 14-day window, not just one.
+void test_rrule_daily_expanded_in_window() {
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:d@t\r\nSUMMARY:Standup\r\n"
+      "DTSTART:20250101T080000Z\r\nDTEND:20250101T083000Z\r\n"
+      "RRULE:FREQ=DAILY\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(14, (int)out.size());
+  TEST_ASSERT_EQUAL(1800, (int)(out[0].end - out[0].start));
+}
+
+// MO/WE/FR meeting starting before the window should fire 6 times in 14 days.
+void test_rrule_weekly_byday_filter() {
+  // 2026-05-04 is a Monday.
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:w@t\r\nSUMMARY:Sync\r\n"
+      "DTSTART:20260105T140000Z\r\nDTEND:20260105T143000Z\r\n"
+      "RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(6, (int)out.size());
+  for (auto& e : out) {
+    struct tm tm = *gmtime(&e.start);
+    // tm_wday: 1=Mon, 3=Wed, 5=Fri.
+    TEST_ASSERT_TRUE(tm.tm_wday == 1 || tm.tm_wday == 3 || tm.tm_wday == 5);
+  }
+}
+
+// Bi-weekly meeting: occurrences land in alternate weeks anchored to DTSTART.
+void test_rrule_weekly_interval2() {
+  // DTSTART 2026-04-27 (Mon) is the anchor; window 05-02..05-16. Active weeks
+  // step by 2 from the anchor: 04-27, 05-11, 05-25, ... so only 05-11 is
+  // inside the window. 05-04 and 05-18 are in skipped weeks / past window.
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:bw@t\r\nSUMMARY:BiWeekly\r\n"
+      "DTSTART:20260427T140000Z\r\nDTEND:20260427T150000Z\r\n"
+      "RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(1, (int)out.size());
+  struct tm tm = *gmtime(&out[0].start);
+  TEST_ASSERT_EQUAL(2026, tm.tm_year + 1900);
+  TEST_ASSERT_EQUAL(5, tm.tm_mon + 1);
+  TEST_ASSERT_EQUAL(11, tm.tm_mday);
+}
+
+// FREQ=DAILY;INTERVAL=2 must skip every other day, not march daily. Catches
+// stepFor() forgetting to multiply the day stride by INTERVAL.
+void test_rrule_daily_interval2() {
+  // DTSTART 2026-05-03 08:00Z; window 05-02..05-16. Expected hits: 05-03,
+  // 05, 07, 09, 11, 13, 15 — seven every-other-day occurrences.
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:di@t\r\nSUMMARY:EveryOther\r\n"
+      "DTSTART:20260503T080000Z\r\nDTEND:20260503T083000Z\r\n"
+      "RRULE:FREQ=DAILY;INTERVAL=2\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(7, (int)out.size());
+  TEST_ASSERT_EQUAL(2 * 86400, (int)(out[1].start - out[0].start));
+}
+
+// UNTIL clips the recurrence mid-window.
+void test_rrule_until_clips() {
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:u@t\r\nSUMMARY:Until\r\n"
+      "DTSTART:20260503T080000Z\r\n"
+      "RRULE:FREQ=DAILY;UNTIL=20260506T080000Z\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(4, (int)out.size());
+}
+
+// EXDATE skips the named instance from the expansion.
+void test_rrule_exdate_skips_instance() {
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:e@t\r\nSUMMARY:Daily\r\n"
+      "DTSTART:20260503T080000Z\r\nDTEND:20260503T083000Z\r\n"
+      "RRULE:FREQ=DAILY;COUNT=5\r\n"
+      "EXDATE:20260505T080000Z\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(4, (int)out.size());
+  for (auto& e : out) {
+    struct tm tm = *gmtime(&e.start);
+    TEST_ASSERT_NOT_EQUAL(5, tm.tm_mday);
+  }
+}
+
+// All-day weekly recurrence carries the allDay flag through to occurrences.
+void test_rrule_all_day_weekly() {
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:ad@t\r\nSUMMARY:Trash\r\n"
+      "DTSTART;VALUE=DATE:20260104\r\nDTEND;VALUE=DATE:20260105\r\n"
+      "RRULE:FREQ=WEEKLY\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(2, (int)out.size());
+  TEST_ASSERT_TRUE(out[0].allDay);
+  TEST_ASSERT_TRUE(out[1].allDay);
+}
+
+// Plain weekly recurrence (no BYDAY) repeats on the same weekday as DTSTART.
+void test_rrule_weekly_no_byday() {
+  // 2026-04-26 is a Sunday; window is 2026-05-02 .. 05-16. Expected hits:
+  // 05-03 and 05-10 (both Sundays).
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:ws@t\r\nSUMMARY:Sunday\r\n"
+      "DTSTART:20260426T120000Z\r\nDTEND:20260426T130000Z\r\n"
+      "RRULE:FREQ=WEEKLY\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(2, (int)out.size());
+  for (auto& e : out) {
+    struct tm tm = *gmtime(&e.start);
+    TEST_ASSERT_EQUAL(0, tm.tm_wday);  // Sunday
+  }
+}
+
+// Yearly recurrence from years ago must still produce the current-year hit
+// when its anniversary falls inside the window.
+void test_rrule_yearly_birthday_in_window() {
+  // Birthday 2020-05-09; window 05-02..05-16 includes 2026-05-09.
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:y@t\r\nSUMMARY:Birthday\r\n"
+      "DTSTART;VALUE=DATE:20200509\r\nDTEND;VALUE=DATE:20200510\r\n"
+      "RRULE:FREQ=YEARLY\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(1, (int)out.size());
+  TEST_ASSERT_TRUE(out[0].allDay);
+  struct tm tm = *gmtime(&out[0].start);
+  TEST_ASSERT_EQUAL(2026, tm.tm_year + 1900);
+  TEST_ASSERT_EQUAL(5, tm.tm_mon + 1);
+  TEST_ASSERT_EQUAL(9, tm.tm_mday);
+}
+
+// Yearly recurrence whose anniversary is outside the 14-day window emits
+// nothing (and doesn't run away iterating).
+void test_rrule_yearly_outside_window() {
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:y2@t\r\nSUMMARY:Xmas\r\n"
+      "DTSTART;VALUE=DATE:20201225\r\nDTEND;VALUE=DATE:20201226\r\n"
+      "RRULE:FREQ=YEARLY\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(0, (int)out.size());
+}
+
+// A daily recurrence anchored well over 13 years before kNow exhausts the
+// 5000-iteration safety cap before reaching the window. The cap should be
+// observable via stats rather than failing silently.
+void test_rrule_iteration_cap_observable() {
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:cap@t\r\nSUMMARY:Old\r\n"
+      "DTSTART:20100101T080000Z\r\nDTEND:20100101T083000Z\r\n"
+      "RRULE:FREQ=DAILY\r\nEND:VEVENT\r\n");
+  IcsParseStats stats;
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100, &stats);
+  TEST_ASSERT_EQUAL(1, stats.recurrenceExpanded);
+  TEST_ASSERT_EQUAL(1, stats.recurrenceCapped);
+  TEST_ASSERT_EQUAL(0, (int)out.size());
+}
+
+// outsideWindow tracks single-instance VEVENTs only. A recurring event whose
+// every occurrence pre-dates the window must NOT inflate that counter — it
+// appears in recurrenceExpanded instead.
+void test_stats_separate_single_and_recurring() {
+  std::string ics = wrap(
+      vevent("Old", "20240101T100000Z") +
+      "BEGIN:VEVENT\r\nUID:r@t\r\nSUMMARY:DeadDaily\r\n"
+      "DTSTART:20240101T080000Z\r\nRRULE:FREQ=DAILY;COUNT=3\r\n"
+      "END:VEVENT\r\n");
+  IcsParseStats stats;
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100, &stats);
+  TEST_ASSERT_EQUAL(0, (int)out.size());
+  TEST_ASSERT_EQUAL(1, stats.outsideWindow);
+  TEST_ASSERT_EQUAL(1, stats.recurrenceExpanded);
+  TEST_ASSERT_EQUAL(0, stats.recurrenceCapped);
+}
+
+// Floating-local daily recurrence anchored before a DST transition must
+// preserve its 09:00 wall-clock time on every occurrence after the spring
+// forward. Without DST-aware stepping, occurrences past 03-29 would drift
+// by an hour.
+void test_rrule_daily_floating_local_preserves_wall_clock_across_dst() {
+  setenv("TZ", "Europe/Berlin", 1);
+  tzset();
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:dst@t\r\nSUMMARY:WallClock\r\n"
+      "DTSTART;TZID=Europe/Berlin:20260325T090000\r\n"
+      "RRULE:FREQ=DAILY\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_GREATER_THAN(0, (int)out.size());
+  for (auto& e : out) {
+    struct tm tm;
+    localtime_r(&e.start, &tm);
+    TEST_ASSERT_EQUAL(9, tm.tm_hour);
+    TEST_ASSERT_EQUAL(0, tm.tm_min);
+  }
+}
+
+// Monthly recurrence anchored years ago must still surface this month's hit.
+void test_rrule_monthly_hits_window() {
+  std::string ics = wrap(
+      "BEGIN:VEVENT\r\nUID:m@t\r\nSUMMARY:Monthly\r\n"
+      "DTSTART:20240510T120000Z\r\nDTEND:20240510T130000Z\r\n"
+      "RRULE:FREQ=MONTHLY\r\nEND:VEVENT\r\n");
+  auto out = parseIcs(ics.c_str(), ics.size(), kNow, 14, 100);
+  TEST_ASSERT_EQUAL(1, (int)out.size());
+  struct tm tm = *gmtime(&out[0].start);
+  TEST_ASSERT_EQUAL(2026, tm.tm_year + 1900);
+  TEST_ASSERT_EQUAL(5, tm.tm_mon + 1);
+  TEST_ASSERT_EQUAL(10, tm.tm_mday);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_empty_body);
@@ -251,6 +458,20 @@ int main(int, char**) {
   RUN_TEST(test_lf_only_line_endings);
   RUN_TEST(test_valarm_inside_vevent_does_not_swallow_end);
   RUN_TEST(test_dtstart_with_tzid_parsed_as_local);
+  RUN_TEST(test_rrule_daily_expanded_in_window);
+  RUN_TEST(test_rrule_weekly_byday_filter);
+  RUN_TEST(test_rrule_weekly_interval2);
+  RUN_TEST(test_rrule_daily_interval2);
+  RUN_TEST(test_rrule_until_clips);
+  RUN_TEST(test_rrule_exdate_skips_instance);
+  RUN_TEST(test_rrule_all_day_weekly);
+  RUN_TEST(test_rrule_weekly_no_byday);
+  RUN_TEST(test_rrule_yearly_birthday_in_window);
+  RUN_TEST(test_rrule_yearly_outside_window);
+  RUN_TEST(test_rrule_iteration_cap_observable);
+  RUN_TEST(test_stats_separate_single_and_recurring);
+  RUN_TEST(test_rrule_daily_floating_local_preserves_wall_clock_across_dst);
+  RUN_TEST(test_rrule_monthly_hits_window);
   RUN_TEST(test_real_fixture_all_vevents_seen);
   RUN_TEST(test_real_fixture_with_production_config);
   return UNITY_END();
