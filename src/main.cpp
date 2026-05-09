@@ -22,27 +22,46 @@
 #include "weather/weather_renderer.h"
 #include "weather/weather_service.h"
 
+RTC_DATA_ATTR uint8_t cachedBssid[6] = {0};
+RTC_DATA_ATTR int32_t cachedChannel = 0;
+RTC_DATA_ATTR bool cachedWifiValid = false;
+
+bool waitForConnect(uint32_t timeoutMs) {
+  uint32_t start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs) {
+    delay(100);
+    Serial.print(".");
+  }
+  return WiFi.status() == WL_CONNECTED;
+}
+
 bool connectToWiFi() {
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting to WiFi");
 
-  int attempts = 0;
-  const int maxAttempts = 20;
-
-  while (WiFi.status() != WL_CONNECTED && attempts < maxAttempts) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
+  if (cachedWifiValid) {
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD, cachedChannel, cachedBssid);
+    if (waitForConnect(4000)) {
+      Serial.println("\nWiFi connected (fast path)!");
+      Serial.printf("IP address: %s\n", WiFi.localIP().toString().c_str());
+      return true;
+    }
+    Serial.println("\nFast path failed, falling back to full scan");
+    WiFi.disconnect(true);
+    cachedWifiValid = false;
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  if (waitForConnect(10000)) {
     Serial.println("\nWiFi connected!");
     Serial.printf("IP address: %s\n", WiFi.localIP().toString().c_str());
+    memcpy(cachedBssid, WiFi.BSSID(), 6);
+    cachedChannel = WiFi.channel();
+    cachedWifiValid = true;
     return true;
-  } else {
-    Serial.println("\nWiFi connection failed!");
-    return false;
   }
+
+  Serial.println("\nWiFi connection failed!");
+  return false;
 }
 
 bool isInCommuteHours(const struct tm& t) {
