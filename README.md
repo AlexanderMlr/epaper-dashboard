@@ -45,3 +45,9 @@ window the device also refreshes less frequently to save battery.
   get a serial console. Set back to `0` to enable battery use.
 - A short hold-off on cold boot leaves a window for re-flashing before
   the device enters its deep-sleep cycle.
+
+## Credits
+
+- Weather icons from the
+  [Basic Rounded Lineal](https://www.flaticon.com/search?author_id=1&style_id=4&type=standard&word=weather)
+  set by [Freepik](https://www.flaticon.com/authors/freepik) on Flaticon.

@@ -2,10 +2,23 @@
 
 #include <Arduino.h>
 
+enum class WeatherCondition {
+  Unknown,
+  Clear,
+  PartlyCloudy,
+  Clouds,
+  Fog,
+  LightRain,
+  Rain,
+  Snow,
+  Hail,
+  Thunderstorm,
+};
+
 struct WeatherData {
   int datetime;
   String datetime_str;
-  String characterization;
+  WeatherCondition condition;
   String description;
   float absolute_temperature;
   float felt_temperature;

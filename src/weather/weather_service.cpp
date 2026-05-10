@@ -8,28 +8,29 @@
 
 namespace {
 
-// WMO weather code -> (characterization matching weather_renderer's icon
-// branches, short description).
+// WMO weather code -> (condition enum, short description).
 struct CodeMap {
-  const char* characterization;
+  WeatherCondition condition;
   const char* description;
 };
 
 CodeMap mapWeatherCode(int code) {
-  if (code == 0) return {"Clear", "clear sky"};
-  if (code == 1) return {"PartlyCloudy", "mostly clear"};
-  if (code == 2) return {"PartlyCloudy", "partly cloudy"};
-  if (code == 3) return {"Clouds", "overcast"};
-  if (code == 45 || code == 48) return {"Fog", "fog"};
-  if (code >= 51 && code <= 57) return {"LightRain", "drizzle"};
-  if (code == 61 || code == 80) return {"LightRain", "light rain"};
+  if (code == 0) return {WeatherCondition::Clear, "clear sky"};
+  if (code == 1) return {WeatherCondition::PartlyCloudy, "mostly clear"};
+  if (code == 2) return {WeatherCondition::PartlyCloudy, "partly cloudy"};
+  if (code == 3) return {WeatherCondition::Clouds, "overcast"};
+  if (code == 45 || code == 48) return {WeatherCondition::Fog, "fog"};
+  if (code >= 51 && code <= 57) return {WeatherCondition::LightRain, "drizzle"};
+  if (code == 61 || code == 80)
+    return {WeatherCondition::LightRain, "light rain"};
   if ((code >= 63 && code <= 67) || code == 81 || code == 82)
-    return {"Rain", "rain"};
+    return {WeatherCondition::Rain, "rain"};
   if ((code >= 71 && code <= 77) || code == 85 || code == 86)
-    return {"Snow", "snow"};
-  if (code == 96 || code == 99) return {"Hail", "thunderstorm with hail"};
-  if (code >= 95) return {"Thunderstorm", "thunderstorm"};
-  return {"Clouds", "unknown"};
+    return {WeatherCondition::Snow, "snow"};
+  if (code == 96 || code == 99)
+    return {WeatherCondition::Hail, "thunderstorm with hail"};
+  if (code >= 95) return {WeatherCondition::Thunderstorm, "thunderstorm"};
+  return {WeatherCondition::Unknown, "unknown"};
 }
 
 String isoToDisplay(const String& iso) {
@@ -118,7 +119,7 @@ WeatherForecast WeatherService::fetch() {
     w.felt_temperature = feels[idx].as<float>();
     w.rain_probability = pops[idx].as<float>();
     CodeMap m = mapWeatherCode(codes[idx].as<int>());
-    w.characterization = m.characterization;
+    w.condition = m.condition;
     w.description = m.description;
     result.entries.push_back(w);
   }

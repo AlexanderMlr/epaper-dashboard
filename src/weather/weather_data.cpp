@@ -4,6 +4,7 @@
 
 WeatherData::WeatherData()
     : datetime(0),
+      condition(WeatherCondition::Unknown),
       absolute_temperature(0.0f),
       felt_temperature(0.0f),
       rain_probability(0.0f) {}

@@ -15,6 +15,23 @@ WeatherRenderer::WeatherRenderer(uint8_t* framebuffer, int originX,
 
 namespace {
 
+// Layout
+const int MARGIN_X = 20;
+const int HEADER_Y = 50;
+const int CURRENT_WEATHER_Y = 110;
+const int FORECAST_Y = 200;
+const int ICON_TEXT_GAP = 16;
+const int BOTTOM_LINE_GAP = 20;
+const int BOTTOM_LINE_Y =
+    FORECAST_Y + ICON_SIZE + 3 * TEXT_LINE_DISTANCE + BOTTOM_LINE_GAP;
+
+// Forecast
+const size_t MAX_FORECAST_ITEMS = 4;
+
+// "Bikeable" thresholds
+const float BIKE_MIN_TEMP_C = 10.0f;
+const float BIKE_MAX_RAIN_PCT = 20.0f;
+
 bool isNightTime(const WeatherData& w, const SunData& sun) {
   if (!sun.isValid()) return false;
   String t = w.getFormattedTime();
@@ -24,41 +41,51 @@ bool isNightTime(const WeatherData& w, const SunData& sun) {
 
 }  // namespace
 
-void WeatherRenderer::drawWeatherIcon(const String& condition, int x, int y,
+void WeatherRenderer::drawWeatherIcon(WeatherCondition condition, int x, int y,
                                       bool isNight) {
   const uint8_t* icon = WeatherIcons::CLOUD_ICON;
 
-  if (condition.equalsIgnoreCase("Clear") ||
-      condition.equalsIgnoreCase("Sunny")) {
-    icon = isNight ? WeatherIcons::NIGHT_ICON : WeatherIcons::SUN_ICON;
-  } else if (condition.equalsIgnoreCase("PartlyCloudy") ||
-             condition.equalsIgnoreCase("Partly Cloudy")) {
-    icon = isNight ? WeatherIcons::NIGHT_ICON
-                   : WeatherIcons::SUN_WITH_CLOUD_ICON;
-  } else if (condition.equalsIgnoreCase("Clouds") ||
-             condition.equalsIgnoreCase("Cloudy")) {
-    icon = WeatherIcons::CLOUD_ICON;
-  } else if (condition.equalsIgnoreCase("LightRain") ||
-             condition.equalsIgnoreCase("Drizzle")) {
-    icon = WeatherIcons::LIGHT_RAIN_ICON;
-  } else if (condition.equalsIgnoreCase("Rain")) {
-    icon = WeatherIcons::RAIN_ICON;
-  } else if (condition.equalsIgnoreCase("Snow")) {
-    icon = WeatherIcons::SNOW_ICON;
-  } else if (condition.equalsIgnoreCase("Fog")) {
-    icon = WeatherIcons::FOG_ICON;
-  } else if (condition.equalsIgnoreCase("Hail")) {
-    icon = WeatherIcons::HAIL_ICON;
-  } else if (condition.equalsIgnoreCase("Thunderstorm")) {
-    icon = WeatherIcons::RAIN_WITH_THUNDER_ICON;
+  switch (condition) {
+    case WeatherCondition::Clear:
+      icon = isNight ? WeatherIcons::NIGHT_ICON : WeatherIcons::SUN_ICON;
+      break;
+    case WeatherCondition::PartlyCloudy:
+      icon = isNight ? WeatherIcons::NIGHT_ICON
+                     : WeatherIcons::SUN_WITH_CLOUD_ICON;
+      break;
+    case WeatherCondition::Clouds:
+      icon = WeatherIcons::CLOUD_ICON;
+      break;
+    case WeatherCondition::Fog:
+      icon = WeatherIcons::FOG_ICON;
+      break;
+    case WeatherCondition::LightRain:
+      icon = WeatherIcons::LIGHT_RAIN_ICON;
+      break;
+    case WeatherCondition::Rain:
+      icon = WeatherIcons::RAIN_ICON;
+      break;
+    case WeatherCondition::Snow:
+      icon = WeatherIcons::SNOW_ICON;
+      break;
+    case WeatherCondition::Hail:
+      icon = WeatherIcons::HAIL_ICON;
+      break;
+    case WeatherCondition::Thunderstorm:
+      icon = WeatherIcons::RAIN_WITH_THUNDER_ICON;
+      break;
+    case WeatherCondition::Unknown:
+      icon = WeatherIcons::CLOUD_ICON;
+      break;
   }
 
-  drawGrayscaleBitmap(framebuffer_, icon, originX_ + x, originY_ + y, 64, 64);
+  drawGrayscaleBitmap(framebuffer_, icon, originX_ + x, originY_ + y,
+                      ICON_SIZE, ICON_SIZE);
 }
 
 void WeatherRenderer::drawHeader() {
-  int32_t x = originX_ + 20;
-  int32_t y = originY_ + 50;
+  int32_t x = originX_ + MARGIN_X;
+  int32_t y = originY_ + HEADER_Y;
   write_string((GFXfont*)&FiraSans, "Weather Forecast", &x, &y, framebuffer_);
 }
 
@@ -66,27 +93,27 @@ void WeatherRenderer::drawCurrentWeather(const WeatherData& weather,
                                          const SunData& sun) {
   if (!weather.isValid()) return;
 
-  const int iconX = 20;
-  const int iconY = 110;
-  drawWeatherIcon(weather.characterization, iconX, iconY,
+  drawWeatherIcon(weather.condition, MARGIN_X, CURRENT_WEATHER_Y,
                   isNightTime(weather, sun));
 
-  int32_t x = originX_ + iconX + ICON_SIZE;
-  int32_t y = originY_ + iconY;
+  const int32_t textX = originX_ + MARGIN_X + ICON_SIZE + ICON_TEXT_GAP;
+
+  int32_t x = textX;
+  int32_t y = originY_ + CURRENT_WEATHER_Y;
   String description = weather.description;
   if (description.length() > 0) {
     description.setCharAt(0, toupper(description.charAt(0)));
   }
   write_string((GFXfont*)&FiraSans, description.c_str(), &x, &y, framebuffer_);
 
-  x = originX_ + iconX + ICON_SIZE;
-  y = originY_ + iconY + TEXT_LINE_DISTANCE;
+  x = textX;
+  y = originY_ + CURRENT_WEATHER_Y + TEXT_LINE_DISTANCE;
   String tempStr = weather.getTemperatureString() + " (felt as " +
                    String((int)(weather.felt_temperature + 0.5f)) + "°C)";
   write_string((GFXfont*)&FiraSans, tempStr.c_str(), &x, &y, framebuffer_);
 
-  x = originX_ + iconX + ICON_SIZE;
-  y = originY_ + iconY + 2 * TEXT_LINE_DISTANCE;
+  x = textX;
+  y = originY_ + CURRENT_WEATHER_Y + 2 * TEXT_LINE_DISTANCE;
   String rainStr =
       "Rain: " + String((int)(weather.rain_probability)) + "%";
   write_string((GFXfont*)&FiraSans, rainStr.c_str(), &x, &y, framebuffer_);
@@ -94,25 +121,25 @@ void WeatherRenderer::drawCurrentWeather(const WeatherData& weather,
 
 void WeatherRenderer::drawForecastGrid(
     const std::vector<WeatherData>& forecast, const SunData& sun) {
-  const int startY = 200;
+  if (forecast.size() < 2) return;
   const int itemWidth = width_ / (forecast.size() - 1);
 
-  for (size_t i = 1; i < forecast.size() && i < 4; i++) {
+  for (size_t i = 1; i < forecast.size() && i < MAX_FORECAST_ITEMS; i++) {
     const WeatherData& weather = forecast[i];
     if (!weather.isValid()) continue;
 
-    const int x = (int)(i - 1) * itemWidth + 20;
+    const int x = static_cast<int>(i - 1) * itemWidth + MARGIN_X;
 
-    drawWeatherIcon(weather.characterization, x + 16, startY,
+    drawWeatherIcon(weather.condition, x + ICON_TEXT_GAP, FORECAST_Y,
                     isNightTime(weather, sun));
 
     int32_t textX = originX_ + x;
-    int32_t textY = originY_ + startY + ICON_SIZE + TEXT_LINE_DISTANCE;
+    int32_t textY = originY_ + FORECAST_Y + ICON_SIZE + TEXT_LINE_DISTANCE;
     write_string((GFXfont*)&FiraSans, weather.getFormattedTime().c_str(),
                  &textX, &textY, framebuffer_);
 
     textX = originX_ + x;
-    textY = originY_ + startY + ICON_SIZE + 2 * TEXT_LINE_DISTANCE;
+    textY = originY_ + FORECAST_Y + ICON_SIZE + 2 * TEXT_LINE_DISTANCE;
     write_string((GFXfont*)&FiraSans, weather.getTemperatureString().c_str(),
                  &textX, &textY, framebuffer_);
   }
@@ -121,10 +148,11 @@ void WeatherRenderer::drawForecastGrid(
 void WeatherRenderer::drawCommuteRecommendation(
     const std::vector<WeatherData>& forecast) {
   bool bikeable = true;
-  for (size_t i = 0; i < forecast.size() && i < 4; i++) {
+  for (size_t i = 0; i < forecast.size() && i < MAX_FORECAST_ITEMS; i++) {
     const WeatherData& w = forecast[i];
     if (!w.isValid()) continue;
-    if (w.absolute_temperature < 10.0f || w.rain_probability >= 20.0f) {
+    if (w.absolute_temperature < BIKE_MIN_TEMP_C ||
+        w.rain_probability >= BIKE_MAX_RAIN_PCT) {
       bikeable = false;
       break;
     }
@@ -134,16 +162,16 @@ void WeatherRenderer::drawCommuteRecommendation(
                                    ? "A good day for biking!"
                                    : "Better take the train.";
 
-  int32_t x = originX_ + 20;
-  int32_t y = originY_ + 200 + ICON_SIZE + 3 * TEXT_LINE_DISTANCE + 20;
+  int32_t x = originX_ + MARGIN_X;
+  int32_t y = originY_ + BOTTOM_LINE_Y;
   write_string((GFXfont*)&FiraSans, recommendation, &x, &y, framebuffer_);
 }
 
 void WeatherRenderer::drawSunInfo(const SunData& sun) {
   if (!sun.isValid()) return;
 
-  int32_t x = originX_ + 20;
-  int32_t y = originY_ + 200 + ICON_SIZE + 3 * TEXT_LINE_DISTANCE + 20;
+  int32_t x = originX_ + MARGIN_X;
+  int32_t y = originY_ + BOTTOM_LINE_Y;
   String line = "Sun: " + sun.sunrise + " - " + sun.sunset;
   if (sun.uvIndexMax >= 0.0f) {
     line += " | UV " + String((int)(sun.uvIndexMax + 0.5f));
@@ -154,8 +182,8 @@ void WeatherRenderer::drawSunInfo(const SunData& sun) {
 void WeatherRenderer::draw(const std::vector<WeatherData>& forecast,
                            bool showCommute, const SunData& sun) {
   if (forecast.empty()) {
-    int32_t x = originX_ + 20;
-    int32_t y = originY_ + 100;
+    int32_t x = originX_ + MARGIN_X;
+    int32_t y = originY_ + CURRENT_WEATHER_Y;
     write_string((GFXfont*)&FiraSans, "No weather data available", &x, &y,
                  framebuffer_);
     return;
