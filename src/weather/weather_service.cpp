@@ -8,6 +8,8 @@
 
 namespace {
 
+const int NUM_FORECASTS = 4;
+
 // WMO weather code -> (condition enum, short description).
 struct CodeMap {
   WeatherCondition condition;

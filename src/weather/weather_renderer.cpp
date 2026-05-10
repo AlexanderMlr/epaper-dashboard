@@ -20,6 +20,8 @@ const int MARGIN_X = 20;
 const int HEADER_Y = 50;
 const int CURRENT_WEATHER_Y = 110;
 const int FORECAST_Y = 200;
+const int ICON_SIZE = 64;          // weather icons are 64x64
+const int TEXT_LINE_DISTANCE = 40; // vertical spacing for FiraSans body text
 const int ICON_TEXT_GAP = 16;
 const int BOTTOM_LINE_GAP = 20;
 const int BOTTOM_LINE_Y =
@@ -27,10 +29,6 @@ const int BOTTOM_LINE_Y =
 
 // Forecast
 const size_t MAX_FORECAST_ITEMS = 4;
-
-// "Bikeable" thresholds
-const float BIKE_MIN_TEMP_C = 10.0f;
-const float BIKE_MAX_RAIN_PCT = 20.0f;
 
 bool isNightTime(const WeatherData& w, const SunData& sun) {
   if (!sun.isValid()) return false;

@@ -15,6 +15,10 @@ struct PsRamAllocator : ArduinoJson::Allocator {
 
 static PsRamAllocator psRamAllocator;
 
+namespace {
+const int COMMUTE_NUM_ROUTES = 5;  // limited to 5 due to screen size
+}
+
 String CommuteService::extractTime(const String& isoDatetime) {
   // "2026-04-18T08:58:00+02:00" -> "08:58"
   int tPos = isoDatetime.indexOf('T');

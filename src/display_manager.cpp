@@ -3,6 +3,10 @@
 #include "config.h"
 #include "epd_driver.h"
 
+namespace {
+const int kFramebufferSize = EPD_WIDTH * EPD_HEIGHT / 2;
+}
+
 void setPixel4bit(uint8_t* framebuffer, int x, int y, uint8_t grayValue) {
   if (x < 0 || x >= EPD_WIDTH || y < 0 || y >= EPD_HEIGHT) {
     return;
@@ -49,7 +53,7 @@ DisplayManager::~DisplayManager() {
 }
 
 bool DisplayManager::initialize() {
-  framebuffer_ = (uint8_t*)ps_calloc(sizeof(uint8_t), FRAMEBUFFER_SIZE);
+  framebuffer_ = (uint8_t*)ps_calloc(sizeof(uint8_t), kFramebufferSize);
 
   if (!framebuffer_) {
     Serial.println("Failed to allocate framebuffer memory!");
@@ -66,7 +70,7 @@ bool DisplayManager::initialize() {
 
 void DisplayManager::clear() {
   if (framebuffer_) {
-    memset(framebuffer_, 0xFF, FRAMEBUFFER_SIZE);
+    memset(framebuffer_, 0xFF, kFramebufferSize);
   }
 }
 

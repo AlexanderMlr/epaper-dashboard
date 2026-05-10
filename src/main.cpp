@@ -26,6 +26,10 @@ RTC_DATA_ATTR uint8_t cachedBssid[6] = {0};
 RTC_DATA_ATTR int32_t cachedChannel = 0;
 RTC_DATA_ATTR bool cachedWifiValid = false;
 
+namespace {
+const int kWifiRetrySleepSec = 30;  // deep-sleep duration after WiFi failure
+}
+
 bool waitForConnect(uint32_t timeoutMs) {
   uint32_t start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < timeoutMs) {
@@ -106,12 +110,12 @@ void setup() {
   DisplayManager display;
   if (!display.initialize()) {
     Serial.println("Display initialization failed!");
-    deepSleep((uint64_t)WIFI_RETRY_SLEEP_SEC * 1000000ULL);
+    deepSleep((uint64_t)kWifiRetrySleepSec * 1000000ULL);
   }
 
   if (!connectToWiFi()) {
     Serial.println("Cannot proceed without WiFi; sleeping before retry.");
-    deepSleep((uint64_t)WIFI_RETRY_SLEEP_SEC * 1000000ULL);
+    deepSleep((uint64_t)kWifiRetrySleepSec * 1000000ULL);
   }
 
   configTime(3600, 3600, "pool.ntp.org");

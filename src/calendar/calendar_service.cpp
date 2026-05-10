@@ -9,6 +9,7 @@
 namespace {
 constexpr size_t kInitialCapacity = 64 * 1024;
 constexpr unsigned long kReadTimeoutMs = 20000;
+const int CALENDAR_NUM_EVENTS = 5;  // limited to 5 due to screen size
 }  // namespace
 
 std::vector<CalendarEvent> CalendarService::fetchEvents() {
