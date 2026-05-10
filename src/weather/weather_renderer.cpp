@@ -15,20 +15,20 @@ WeatherRenderer::WeatherRenderer(uint8_t* framebuffer, int originX,
 
 namespace {
 
-// Layout
-const int MARGIN_X = 20;
-const int HEADER_Y = 50;
-const int CURRENT_WEATHER_Y = 110;
-const int FORECAST_Y = 200;
-const int ICON_SIZE = 64;          // weather icons are 64x64
-const int TEXT_LINE_DISTANCE = 40; // vertical spacing for FiraSans body text
-const int ICON_TEXT_GAP = 16;
-const int BOTTOM_LINE_GAP = 20;
-const int BOTTOM_LINE_Y =
+// Layout (all relative to renderer origin)
+const int MARGIN_X = 20;             // left padding for text and icons
+const int HEADER_Y = 50;             // baseline of the "Weather Forecast" title
+const int CURRENT_WEATHER_Y = 100;   // baseline of the first current-weather text row
+const int FORECAST_Y = 195;          // top of the forecast grid
+const int ICON_SIZE = 64;            // weather icons are 64x64
+const int TEXT_LINE_DISTANCE = 40;   // vertical spacing for FiraSans body text
+const int ICON_TEXT_GAP = 16;        // horizontal gap between an icon and its text
+const int BOTTOM_LINE_GAP = 20;      // padding above the commute/sun footer line
+const int BOTTOM_LINE_Y =            // baseline shared by commute and sun-info rows
     FORECAST_Y + ICON_SIZE + 3 * TEXT_LINE_DISTANCE + BOTTOM_LINE_GAP;
 
 // Forecast
-const size_t MAX_FORECAST_ITEMS = 4;
+const size_t MAX_FORECAST_ITEMS = 4; // entries shown in the grid (incl. current)
 
 bool isNightTime(const WeatherData& w, const SunData& sun) {
   if (!sun.isValid()) return false;
@@ -91,7 +91,7 @@ void WeatherRenderer::drawCurrentWeather(const WeatherData& weather,
                                          const SunData& sun) {
   if (!weather.isValid()) return;
 
-  drawWeatherIcon(weather.condition, MARGIN_X, CURRENT_WEATHER_Y,
+  drawWeatherIcon(weather.condition, MARGIN_X, CURRENT_WEATHER_Y - 8,
                   isNightTime(weather, sun));
 
   const int32_t textX = originX_ + MARGIN_X + ICON_SIZE + ICON_TEXT_GAP;
