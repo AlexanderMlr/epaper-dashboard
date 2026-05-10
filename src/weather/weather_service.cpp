@@ -17,15 +17,17 @@ struct CodeMap {
 
 CodeMap mapWeatherCode(int code) {
   if (code == 0) return {"Clear", "clear sky"};
-  if (code == 1) return {"Clear", "mostly clear"};
-  if (code == 2) return {"Clouds", "partly cloudy"};
+  if (code == 1) return {"PartlyCloudy", "mostly clear"};
+  if (code == 2) return {"PartlyCloudy", "partly cloudy"};
   if (code == 3) return {"Clouds", "overcast"};
-  if (code == 45 || code == 48) return {"Clouds", "fog"};
-  if (code >= 51 && code <= 57) return {"Drizzle", "drizzle"};
-  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82))
+  if (code == 45 || code == 48) return {"Fog", "fog"};
+  if (code >= 51 && code <= 57) return {"LightRain", "drizzle"};
+  if (code == 61 || code == 80) return {"LightRain", "light rain"};
+  if ((code >= 63 && code <= 67) || code == 81 || code == 82)
     return {"Rain", "rain"};
   if ((code >= 71 && code <= 77) || code == 85 || code == 86)
     return {"Snow", "snow"};
+  if (code == 96 || code == 99) return {"Hail", "thunderstorm with hail"};
   if (code >= 95) return {"Thunderstorm", "thunderstorm"};
   return {"Clouds", "unknown"};
 }

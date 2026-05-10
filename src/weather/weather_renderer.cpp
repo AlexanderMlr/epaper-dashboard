@@ -13,18 +13,44 @@ WeatherRenderer::WeatherRenderer(uint8_t* framebuffer, int originX,
       width_(width),
       height_(height) {}
 
-void WeatherRenderer::drawWeatherIcon(const String& condition, int x, int y) {
+namespace {
+
+bool isNightTime(const WeatherData& w, const SunData& sun) {
+  if (!sun.isValid()) return false;
+  String t = w.getFormattedTime();
+  if (t == "99:99") return false;
+  return t < sun.sunrise || t >= sun.sunset;
+}
+
+}  // namespace
+
+void WeatherRenderer::drawWeatherIcon(const String& condition, int x, int y,
+                                      bool isNight) {
   const uint8_t* icon = WeatherIcons::CLOUD_ICON;
 
   if (condition.equalsIgnoreCase("Clear") ||
       condition.equalsIgnoreCase("Sunny")) {
-    icon = WeatherIcons::SUN_ICON;
+    icon = isNight ? WeatherIcons::NIGHT_ICON : WeatherIcons::SUN_ICON;
+  } else if (condition.equalsIgnoreCase("PartlyCloudy") ||
+             condition.equalsIgnoreCase("Partly Cloudy")) {
+    icon = isNight ? WeatherIcons::NIGHT_ICON
+                   : WeatherIcons::SUN_WITH_CLOUD_ICON;
   } else if (condition.equalsIgnoreCase("Clouds") ||
              condition.equalsIgnoreCase("Cloudy")) {
     icon = WeatherIcons::CLOUD_ICON;
-  } else if (condition.equalsIgnoreCase("Rain") ||
+  } else if (condition.equalsIgnoreCase("LightRain") ||
              condition.equalsIgnoreCase("Drizzle")) {
+    icon = WeatherIcons::LIGHT_RAIN_ICON;
+  } else if (condition.equalsIgnoreCase("Rain")) {
     icon = WeatherIcons::RAIN_ICON;
+  } else if (condition.equalsIgnoreCase("Snow")) {
+    icon = WeatherIcons::SNOW_ICON;
+  } else if (condition.equalsIgnoreCase("Fog")) {
+    icon = WeatherIcons::FOG_ICON;
+  } else if (condition.equalsIgnoreCase("Hail")) {
+    icon = WeatherIcons::HAIL_ICON;
+  } else if (condition.equalsIgnoreCase("Thunderstorm")) {
+    icon = WeatherIcons::RAIN_WITH_THUNDER_ICON;
   }
 
   drawGrayscaleBitmap(framebuffer_, icon, originX_ + x, originY_ + y, 64, 64);
@@ -36,17 +62,22 @@ void WeatherRenderer::drawHeader() {
   write_string((GFXfont*)&FiraSans, "Weather Forecast", &x, &y, framebuffer_);
 }
 
-void WeatherRenderer::drawCurrentWeather(const WeatherData& weather) {
+void WeatherRenderer::drawCurrentWeather(const WeatherData& weather,
+                                         const SunData& sun) {
   if (!weather.isValid()) return;
 
   const int iconX = 20;
   const int iconY = 110;
-  drawWeatherIcon(weather.characterization, iconX, iconY);
+  drawWeatherIcon(weather.characterization, iconX, iconY,
+                  isNightTime(weather, sun));
 
   int32_t x = originX_ + iconX + ICON_SIZE;
   int32_t y = originY_ + iconY;
-  write_string((GFXfont*)&FiraSans, weather.description.c_str(), &x, &y,
-               framebuffer_);
+  String description = weather.description;
+  if (description.length() > 0) {
+    description.setCharAt(0, toupper(description.charAt(0)));
+  }
+  write_string((GFXfont*)&FiraSans, description.c_str(), &x, &y, framebuffer_);
 
   x = originX_ + iconX + ICON_SIZE;
   y = originY_ + iconY + TEXT_LINE_DISTANCE;
@@ -62,7 +93,7 @@ void WeatherRenderer::drawCurrentWeather(const WeatherData& weather) {
 }
 
 void WeatherRenderer::drawForecastGrid(
-    const std::vector<WeatherData>& forecast) {
+    const std::vector<WeatherData>& forecast, const SunData& sun) {
   const int startY = 200;
   const int itemWidth = width_ / (forecast.size() - 1);
 
@@ -72,7 +103,8 @@ void WeatherRenderer::drawForecastGrid(
 
     const int x = (int)(i - 1) * itemWidth + 20;
 
-    drawWeatherIcon(weather.characterization, x, startY);
+    drawWeatherIcon(weather.characterization, x + 16, startY,
+                    isNightTime(weather, sun));
 
     int32_t textX = originX_ + x;
     int32_t textY = originY_ + startY + ICON_SIZE + TEXT_LINE_DISTANCE;
@@ -130,10 +162,10 @@ void WeatherRenderer::draw(const std::vector<WeatherData>& forecast,
   }
 
   drawHeader();
-  drawCurrentWeather(forecast[0]);
+  drawCurrentWeather(forecast[0], sun);
 
   if (forecast.size() > 1) {
-    drawForecastGrid(forecast);
+    drawForecastGrid(forecast, sun);
   }
 
   if (showCommute) {

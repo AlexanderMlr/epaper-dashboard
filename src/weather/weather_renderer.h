@@ -21,10 +21,11 @@ class WeatherRenderer {
   int width_;
   int height_;
 
-  void drawWeatherIcon(const String& condition, int x, int y);
+  void drawWeatherIcon(const String& condition, int x, int y, bool isNight);
   void drawHeader();
-  void drawCurrentWeather(const WeatherData& weather);
-  void drawForecastGrid(const std::vector<WeatherData>& forecast);
+  void drawCurrentWeather(const WeatherData& weather, const SunData& sun);
+  void drawForecastGrid(const std::vector<WeatherData>& forecast,
+                        const SunData& sun);
   void drawCommuteRecommendation(const std::vector<WeatherData>& forecast);
   void drawSunInfo(const SunData& sun);
 };
