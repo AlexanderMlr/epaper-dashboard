@@ -61,9 +61,6 @@ bool DisplayManager::initialize() {
   }
 
   epd_init();
-  epd_poweron();
-  epd_clear();
-  epd_poweroff_all();
 
   return true;
 }

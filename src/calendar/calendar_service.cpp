@@ -55,6 +55,9 @@ std::vector<CalendarEvent> CalendarService::fetchEvents() {
   WiFiClient* stream = http.getStreamPtr();
   const unsigned long deadline = millis() + kReadTimeoutMs;
   bool readError = false;
+  bool sawEndMarker = false;
+  static const char kEndMarker[] = "END:VCALENDAR";
+  const size_t kEndMarkerLen = sizeof(kEndMarker) - 1;
   while (millis() < deadline) {
     int avail = stream->available();
     if (avail <= 0) {
@@ -76,6 +79,23 @@ std::vector<CalendarEvent> CalendarService::fetchEvents() {
     }
     int n = stream->readBytes(body + got, avail);
     if (n > 0) got += (size_t)n;
+
+    // ICS body always contains exactly one "END:VCALENDAR", at the end. Break
+    // once we see it so we don't wait on the keep-alive TCP connection. We
+    // search a tail window rather than the very last bytes because chunked
+    // transfer encoding can append metadata (e.g. "0\r\n\r\n") after the body.
+    if (!sawEndMarker && got >= kEndMarkerLen) {
+      const size_t windowBytes = 256;
+      const size_t windowStart =
+          got > windowBytes ? got - windowBytes : 0;
+      for (size_t i = windowStart; i + kEndMarkerLen <= got; i++) {
+        if (memcmp(body + i, kEndMarker, kEndMarkerLen) == 0) {
+          sawEndMarker = true;
+          break;
+        }
+      }
+      if (sawEndMarker) break;
+    }
   }
   body[got] = '\0';
   http.end();
@@ -84,7 +104,8 @@ std::vector<CalendarEvent> CalendarService::fetchEvents() {
                 (unsigned)cap, (unsigned)ESP.getFreePsram());
 
   const bool truncated =
-      contentLength > 0 && got < (size_t)contentLength;
+      (contentLength > 0 && got < (size_t)contentLength) ||
+      (contentLength <= 0 && !sawEndMarker);
   if (readError || got == 0 || truncated) {
     Serial.println("Body read failed or truncated, skipping parse");
     free(body);
