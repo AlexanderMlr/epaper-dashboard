@@ -7,6 +7,7 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 #include <esp_sleep.h>
+#include <sys/time.h>
 #include <time.h>
 
 #include "calendar/calendar_renderer.h"
@@ -25,6 +26,19 @@
 RTC_DATA_ATTR uint8_t cachedBssid[6] = {0};
 RTC_DATA_ATTR int32_t cachedChannel = 0;
 RTC_DATA_ATTR bool cachedWifiValid = false;
+RTC_DATA_ATTR time_t lastNtpSyncEpoch = 0;
+RTC_DATA_ATTR time_t epochBeforeSleep = 0;
+RTC_DATA_ATTR uint64_t plannedSleepUs = 0;
+
+bool shouldSyncNtp(time_t now, time_t lastSync) {
+  if (lastSync == 0) return true;
+  const time_t age = now - lastSync;
+  if (age < 20 * 3600) return false;
+  if (age > 26 * 3600) return true;
+  struct tm t;
+  localtime_r(&now, &t);
+  return t.tm_hour >= 4 && t.tm_hour < 7;
+}
 
 namespace {
 const int kWifiRetrySleepSec = 30;  // deep-sleep duration after WiFi failure
@@ -86,6 +100,8 @@ uint64_t computeSleepMicros(bool haveTime, const struct tm& t) {
 }
 
 void deepSleep(uint64_t sleepUs) {
+  epochBeforeSleep = time(nullptr);
+  plannedSleepUs = sleepUs;
   Serial.printf("Sleeping %llu seconds\n", sleepUs / 1000000ULL);
   Serial.flush();
   WiFi.disconnect(true);
@@ -105,6 +121,16 @@ void setup() {
     delay((uint32_t)COLD_BOOT_HOLDOFF_SEC * 1000UL);
   }
 
+  // Set TZ and restore wall clock from RTC cache before anything else, so
+  // failure paths (display/WiFi) still preserve the time-cache continuity.
+  configTime(3600, 3600, "pool.ntp.org");
+  if (epochBeforeSleep != 0) {
+    struct timeval tv;
+    tv.tv_sec = epochBeforeSleep + (time_t)(plannedSleepUs / 1000000ULL);
+    tv.tv_usec = 0;
+    settimeofday(&tv, nullptr);
+  }
+
   Serial.println("Initializing display...");
 
   DisplayManager display;
@@ -118,13 +144,21 @@ void setup() {
     deepSleep((uint64_t)kWifiRetrySleepSec * 1000000ULL);
   }
 
-  configTime(3600, 3600, "pool.ntp.org");
-  Serial.println("Waiting for NTP time sync...");
-  struct tm timeinfo;
-  if (getLocalTime(&timeinfo, 10000)) {
-    Serial.println("Time synced.");
+  const time_t now = time(nullptr);
+  if (shouldSyncNtp(now, lastNtpSyncEpoch)) {
+    Serial.println("Syncing NTP...");
+    struct tm timeinfo;
+    if (getLocalTime(&timeinfo, 5000)) {
+      lastNtpSyncEpoch = time(nullptr);
+      Serial.println("Time synced.");
+    } else {
+      Serial.println("NTP sync failed, using cached/drifted time.");
+    }
   } else {
-    Serial.println("NTP sync failed, commute times may be wrong.");
+    struct tm localNow;
+    localtime_r(&now, &localNow);
+    Serial.printf("Skipping NTP (age=%lus, hour=%d)\n",
+                  (unsigned long)(now - lastNtpSyncEpoch), localNow.tm_hour);
   }
 
   struct tm nowT{};
