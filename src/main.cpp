@@ -30,18 +30,20 @@ RTC_DATA_ATTR time_t lastNtpSyncEpoch = 0;
 RTC_DATA_ATTR time_t epochBeforeSleep = 0;
 RTC_DATA_ATTR uint64_t plannedSleepUs = 0;
 
+namespace {
+const int kWifiRetrySleepSec = 30;  // deep-sleep duration after WiFi failure
+const int kNtpMinResyncHours = 20;  // earliest re-sync, and only if in window
+const int kNtpMaxResyncHours = 26;  // forced re-sync regardless of hour
+}
+
 bool shouldSyncNtp(time_t now, time_t lastSync) {
   if (lastSync == 0) return true;
   const time_t age = now - lastSync;
-  if (age < 20 * 3600) return false;
-  if (age > 26 * 3600) return true;
+  if (age < kNtpMinResyncHours * 3600) return false;
+  if (age > kNtpMaxResyncHours * 3600) return true;
   struct tm t;
   localtime_r(&now, &t);
-  return t.tm_hour >= 4 && t.tm_hour < 7;
-}
-
-namespace {
-const int kWifiRetrySleepSec = 30;  // deep-sleep duration after WiFi failure
+  return t.tm_hour >= 2 && t.tm_hour < 5;
 }
 
 bool waitForConnect(uint32_t timeoutMs) {
@@ -123,7 +125,7 @@ void setup() {
 
   // Set TZ and restore wall clock from RTC cache before anything else, so
   // failure paths (display/WiFi) still preserve the time-cache continuity.
-  configTime(3600, 3600, "pool.ntp.org");
+  configTzTime(TIME_ZONE, "pool.ntp.org");
   if (epochBeforeSleep != 0) {
     struct timeval tv;
     tv.tv_sec = epochBeforeSleep + (time_t)(plannedSleepUs / 1000000ULL);

@@ -27,6 +27,8 @@ constexpr const char *CALENDAR_ICS_URL = "";
 const int CALENDAR_LOOKAHEAD_DAYS = 14;
 
 // Timing
+// POSIX TZ string with DST rules. Default is Central European Time (Germany).
+constexpr const char *TIME_ZONE = "CET-1CEST,M3.5.0,M10.5.0/3";
 const int COMMUTE_UPDATE_INTERVAL_MIN = 10;    // commute-hours refresh interval
 const int OFF_HOURS_UPDATE_INTERVAL_MIN = 120; // refresh interval outside commute hours
 const int COLD_BOOT_HOLDOFF_SEC = 20;  // reflash window on power-on / RST; skipped on timer wake
