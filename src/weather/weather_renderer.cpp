@@ -19,7 +19,7 @@ namespace {
 const int MARGIN_X = 20;             // left padding for text and icons
 const int HEADER_Y = 50;             // baseline of the "Weather Forecast" title
 const int CURRENT_WEATHER_Y = 100;   // baseline of the first current-weather text row
-const int FORECAST_Y = 195;          // top of the forecast grid
+const int FORECAST_Y = 210;          // top of the forecast grid
 const int ICON_SIZE = 64;            // weather icons are 64x64
 const int TEXT_LINE_DISTANCE = 40;   // vertical spacing for FiraSans body text
 const int ICON_TEXT_GAP = 16;        // horizontal gap between an icon and its text

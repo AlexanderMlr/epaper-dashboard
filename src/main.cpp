@@ -108,6 +108,7 @@ void deepSleep(uint64_t sleepUs) {
   Serial.flush();
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
+  sleepTouchController();
   esp_sleep_enable_timer_wakeup(sleepUs);
   esp_deep_sleep_start();
 }

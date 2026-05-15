@@ -1,6 +1,7 @@
 #include "power.h"
 
 #include <Arduino.h>
+#include <Wire.h>
 
 #include "config.h"
 #include "epd_driver.h"
@@ -12,6 +13,44 @@ float readBatteryVoltage() {
   uint16_t raw = analogRead(BATT_PIN);
   epd_poweroff_all();
   return ((float)raw / 4095.0f) * 2.0f * 3.3f * BATTERY_VOLTAGE_CALIBRATION;
+}
+
+// Sleeps the GT911 touch controller (~3 mA awake → ~5 µA asleep). The INT
+// pulse re-addresses the chip if it was already asleep from a prior cycle.
+void sleepTouchController() {
+  // GT911 picks one of two I2C addresses at power-on based on INT/RST timing,
+  // so we probe both. Registers are 16-bit, sent high byte first.
+  constexpr uint8_t kAddrCandidates[] = {0x14, 0x5D};
+  constexpr uint16_t kRegCommand = 0x8040;
+  constexpr uint8_t kCmdEnterSleep = 0x05;
+
+  pinMode(TOUCH_INT, OUTPUT);
+  digitalWrite(TOUCH_INT, HIGH);
+  delay(10);
+
+  Wire.begin(BOARD_SDA, BOARD_SCL);
+  uint8_t addr = 0;
+  for (uint8_t candidate : kAddrCandidates) {
+    Wire.beginTransmission(candidate);
+    if (Wire.endTransmission() == 0) {
+      addr = candidate;
+      break;
+    }
+  }
+  if (addr) {
+    Wire.beginTransmission(addr);
+    Wire.write(static_cast<uint8_t>(kRegCommand >> 8));
+    Wire.write(static_cast<uint8_t>(kRegCommand & 0xFF));
+    Wire.write(kCmdEnterSleep);
+    Wire.endTransmission();
+    delay(5);
+  }
+  Wire.end();
+
+  // Open-drain so we don't drive the chip's pins during deep sleep.
+  pinMode(BOARD_SDA, OPEN_DRAIN);
+  pinMode(BOARD_SCL, OPEN_DRAIN);
+  pinMode(TOUCH_INT, OPEN_DRAIN);
 }
 
 int batteryPercent(float voltage) {
