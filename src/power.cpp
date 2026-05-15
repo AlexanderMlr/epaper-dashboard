@@ -8,11 +8,16 @@
 #include "utilities.h"
 
 float readBatteryVoltage() {
+  constexpr int kSamples = 16;
   epd_poweron();
   delay(10);
-  uint16_t raw = analogRead(BATT_PIN);
+  uint32_t sumMv = 0;
+  for (int i = 0; i < kSamples; ++i) {
+    sumMv += analogReadMilliVolts(BATT_PIN);
+  }
   epd_poweroff_all();
-  return ((float)raw / 4095.0f) * 2.0f * 3.3f * BATTERY_VOLTAGE_CALIBRATION;
+  const float pinVolts = (sumMv / static_cast<float>(kSamples)) / 1000.0f;
+  return pinVolts * 2.0f * BATTERY_VOLTAGE_CALIBRATION;
 }
 
 // Sleeps the GT911 touch controller (~3 mA awake → ~5 µA asleep). The INT

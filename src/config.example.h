@@ -35,7 +35,7 @@ const int COLD_BOOT_HOLDOFF_SEC = 20;  // reflash window on power-on / RST; skip
 
 // Battery
 // factor to align board voltage reading with ground truth measurement for higher battery accuracy
-const float BATTERY_VOLTAGE_CALIBRATION = 1.0f; // measured / displayed
+const float BATTERY_VOLTAGE_CALIBRATION = 1.0f; // = (measured / displayed)
 
 }  // namespace Config
 

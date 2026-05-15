@@ -185,6 +185,10 @@ void setup() {
                 (unsigned)weather.entries.size(), (unsigned)routes.size(),
                 (unsigned)events.size());
 
+  // WiFi off before reading battery — TX sag would skew the voltage low.
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+
   display.clear();
 
   const int halfWidth = EPD_WIDTH / 2;
