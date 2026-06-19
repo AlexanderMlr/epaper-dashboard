@@ -37,6 +37,19 @@ window the device also refreshes less frequently to save battery.
      (Calendar settings → Secret address in iCal format)
 3. Build & flash
 
+### Flashing from WSL
+
+The upload step auto-attaches the board to WSL via
+[usbipd-win](https://github.com/dorssel/usbipd-win). This requires a one-time setup per machine in an **admin** PowerShell:
+
+```
+usbipd bind --busid 2-1
+```
+
+After binding, clicking Upload (or `pio run -t upload`) attaches the device
+automatically. If your board enumerates on a different bus, update
+`USBIPD_BUSID` in `scripts/attach_usb.py`.
+
 ## Notes
 
 - TLS certificates are not pinned (`setInsecure()` in both API clients).
