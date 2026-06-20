@@ -27,5 +27,5 @@ class WeatherRenderer {
   void drawForecastGrid(const std::vector<WeatherData>& forecast,
                         const SunData& sun);
   void drawCommuteRecommendation(const std::vector<WeatherData>& forecast);
-  void drawSunInfo(const SunData& sun);
+  void drawSunInfo(const SunData& sun, bool isNight);
 };

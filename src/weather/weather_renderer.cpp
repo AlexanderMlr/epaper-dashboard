@@ -32,9 +32,9 @@ const size_t MAX_FORECAST_ITEMS = 4; // entries shown in the grid (incl. current
 
 bool isNightTime(const WeatherData& w, const SunData& sun) {
   if (!sun.isValid()) return false;
-  String t = w.getFormattedTime();
-  if (t == "99:99") return false;
-  return t < sun.sunrise || t >= sun.sunset;
+  auto t = w.getFormattedTime();
+  if (!t) return false;
+  return *t < sun.sunrise || *t >= sun.sunset;
 }
 
 }  // namespace
@@ -133,7 +133,7 @@ void WeatherRenderer::drawForecastGrid(
 
     int32_t textX = originX_ + x;
     int32_t textY = originY_ + FORECAST_Y + ICON_SIZE + TEXT_LINE_DISTANCE;
-    write_string((GFXfont*)&FiraSans, weather.getFormattedTime().c_str(),
+    write_string((GFXfont*)&FiraSans, weather.getFormattedTime().value_or("").c_str(),
                  &textX, &textY, framebuffer_);
 
     textX = originX_ + x;
@@ -165,14 +165,19 @@ void WeatherRenderer::drawCommuteRecommendation(
   write_string((GFXfont*)&FiraSans, recommendation, &x, &y, framebuffer_);
 }
 
-void WeatherRenderer::drawSunInfo(const SunData& sun) {
+void WeatherRenderer::drawSunInfo(const SunData& sun, bool isNight) {
   if (!sun.isValid()) return;
 
   int32_t x = originX_ + MARGIN_X;
   int32_t y = originY_ + BOTTOM_LINE_Y;
-  String line = "Sun: " + sun.sunrise + " - " + sun.sunset;
-  if (sun.uvIndexMax >= 0.0f) {
-    line += " | UV " + String((int)(sun.uvIndexMax + 0.5f));
+  String line;
+  if (isNight) {
+    line = "Sunrise " + sun.sunrise;
+  } else {
+    line = "Sunset " + sun.sunset;
+    if (sun.uvIndexMax >= 0.0f) {
+      line += " | UV Index " + String((int)(sun.uvIndexMax + 0.5f));
+    }
   }
   write_string((GFXfont*)&FiraSans, line.c_str(), &x, &y, framebuffer_);
 }
@@ -197,6 +202,6 @@ void WeatherRenderer::draw(const std::vector<WeatherData>& forecast,
   if (showCommute) {
     drawCommuteRecommendation(forecast);
   } else {
-    drawSunInfo(sun);
+    drawSunInfo(sun, isNightTime(forecast[0], sun));
   }
 }

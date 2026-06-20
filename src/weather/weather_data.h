@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include <optional>
+
 enum class WeatherCondition {
   Unknown,
   Clear,
@@ -26,6 +28,6 @@ struct WeatherData {
 
   WeatherData();
   bool isValid() const;
-  String getFormattedTime() const;
+  std::optional<String> getFormattedTime() const;
   String getTemperatureString() const;
 };

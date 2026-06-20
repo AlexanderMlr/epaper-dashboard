@@ -11,12 +11,12 @@ WeatherData::WeatherData()
 
 bool WeatherData::isValid() const { return !datetime_str.isEmpty(); }
 
-String WeatherData::getFormattedTime() const {
+std::optional<String> WeatherData::getFormattedTime() const {
   int spaceIndex = datetime_str.indexOf(' ');
   if (spaceIndex != -1 && spaceIndex + 6 < datetime_str.length()) {
     return datetime_str.substring(spaceIndex + 1, spaceIndex + 6);
   }
-  return "99:99";
+  return std::nullopt;
 }
 
 String WeatherData::getTemperatureString() const {
