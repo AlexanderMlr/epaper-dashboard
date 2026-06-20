@@ -20,39 +20,37 @@ float readBatteryVoltage() {
   return pinVolts * 2.0f * BATTERY_VOLTAGE_CALIBRATION;
 }
 
-// Sleeps the GT911 touch controller (~3 mA awake → ~5 µA asleep). The INT
-// pulse re-addresses the chip if it was already asleep from a prior cycle.
+// Sleeps the GT911 touch controller (~3 mA awake → ~5 µA asleep).
+// Deep-sleep current background: https://github.com/Xinyuan-LilyGO/LilyGo-EPD47/issues/167
 void sleepTouchController() {
-  // GT911 picks one of two I2C addresses at power-on based on INT/RST timing,
-  // so we probe both. Registers are 16-bit, sent high byte first.
-  constexpr uint8_t kAddrCandidates[] = {0x14, 0x5D};
-  constexpr uint16_t kRegCommand = 0x8040;
-  constexpr uint8_t kCmdEnterSleep = 0x05;
-
   pinMode(TOUCH_INT, OUTPUT);
-  digitalWrite(TOUCH_INT, HIGH);
-  delay(10);
+  digitalWrite(TOUCH_INT, HIGH);  // re-address it if it slept in a prior cycle
+  delay(120);
 
   Wire.begin(BOARD_SDA, BOARD_SCL);
   uint8_t addr = 0;
-  for (uint8_t candidate : kAddrCandidates) {
+  for (uint8_t candidate : {0x14, 0x5D}) {  // address depends on INT/RST timing
     Wire.beginTransmission(candidate);
     if (Wire.endTransmission() == 0) {
       addr = candidate;
       break;
     }
   }
+
   if (addr) {
-    Wire.beginTransmission(addr);
-    Wire.write(static_cast<uint8_t>(kRegCommand >> 8));
-    Wire.write(static_cast<uint8_t>(kRegCommand & 0xFF));
-    Wire.write(kCmdEnterSleep);
-    Wire.endTransmission();
-    delay(5);
+    digitalWrite(TOUCH_INT, LOW);
+    for (int i = 0; i < 5; ++i) {  // retry: single send doesn't reliably sleep it
+      Wire.beginTransmission(addr);
+      Wire.write(0x80);  // command register 0x8040
+      Wire.write(0x40);
+      Wire.write(0x05);  // enter sleep
+      Wire.endTransmission();
+      delay(20);
+    }
+    delay(500);
   }
   Wire.end();
 
-  // Open-drain so we don't drive the chip's pins during deep sleep.
   pinMode(BOARD_SDA, OPEN_DRAIN);
   pinMode(BOARD_SCL, OPEN_DRAIN);
   pinMode(TOUCH_INT, OPEN_DRAIN);
