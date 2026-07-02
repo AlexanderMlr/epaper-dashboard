@@ -7,12 +7,12 @@ A footer line reports last-update time, next refresh, and battery level.
 
 ![The dashboard running on actual hardware](assets/preview.jpg)
 
-## Hardware
+## 🔌 Hardware
 
 - LilyGo T5 4.7" e-paper (S3 variant)
 - Powered via exteral LiPo or USB (lasts multiple months on standard 18650 battery with 3500mAh)
 
-## What it shows
+## 📊 What it shows
 
 - **Weather** — multi-step forecast from Open-Meteo (icon, temperature,
   conditions).
@@ -28,7 +28,7 @@ The right-half panel switches between commute and calendar based on the local
 hour (`COMMUTE_HOURS_START` / `COMMUTE_HOURS_END`). Outside the commute
 window the device also refreshes less frequently to save battery.
 
-## Setup
+## 🚀 Setup
 
 1. Install [PlatformIO](https://platformio.org/) (CLI or VS Code extension).
 2. Copy `src/config.example.h` to `src/config.h` and fill in:
@@ -52,7 +52,7 @@ After binding, clicking Upload (or `pio run -t upload`) attaches the device
 automatically. If your board enumerates on a different bus, update
 `USBIPD_BUSID` in `scripts/attach_usb.py`.
 
-## Notes
+## 📝 Notes
 
 - TLS certificates are not pinned (`setInsecure()` in both API clients).
   Acceptable for read-only personal data; revisit before exposing the device.
@@ -61,7 +61,7 @@ automatically. If your board enumerates on a different bus, update
 - A short hold-off on cold boot leaves a window for re-flashing before
   the device enters its deep-sleep cycle.
 
-## Credits
+## 🙏 Credits
 
 - Weather icons from the
   [Basic Rounded Lineal](https://www.flaticon.com/search?author_id=1&style_id=4&type=standard&word=weather)
