@@ -5,10 +5,12 @@ forecast on the left half of the screen and, depending on time of day, either
 public-transit commute options or upcoming calendar events on the right half.
 A footer line reports last-update time, next refresh, and battery level.
 
+![The dashboard running on actual hardware](assets/preview.jpg)
+
 ## Hardware
 
 - LilyGo T5 4.7" e-paper (S3 variant)
-- Powered via exteral LiPo or USB
+- Powered via exteral LiPo or USB (lasts multiple months on standard 18650 battery with 3500mAh)
 
 ## What it shows
 
