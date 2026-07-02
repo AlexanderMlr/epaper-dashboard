@@ -4,6 +4,7 @@
 
 #include <vector>
 
+#include "next_day_data.h"
 #include "sun_data.h"
 #include "weather_data.h"
 
@@ -12,7 +13,7 @@ class WeatherRenderer {
   WeatherRenderer(uint8_t* framebuffer, int originX, int originY, int width,
                   int height);
   void draw(const std::vector<WeatherData>& forecast, bool showCommute,
-            const SunData& sun);
+            const SunData& sun, const NextDayData& nextDay);
 
  private:
   uint8_t* framebuffer_;
@@ -28,4 +29,5 @@ class WeatherRenderer {
                         const SunData& sun);
   void drawCommuteRecommendation(const std::vector<WeatherData>& forecast);
   void drawSunInfo(const SunData& sun, bool isNight);
+  void drawNextDay(const NextDayData& nextDay);
 };

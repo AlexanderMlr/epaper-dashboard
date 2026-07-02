@@ -72,7 +72,8 @@ String WeatherService::buildRequestUrl() const {
          "&longitude=" + LOCATION_LONGITUDE +
          "&hourly=temperature_2m,apparent_temperature,precipitation_probability,"
          "weathercode" +
-         "&daily=uv_index_max,sunrise,sunset" +
+         "&daily=uv_index_max,sunrise,sunset,weathercode,temperature_2m_max,"
+         "precipitation_probability_max" +
          "&timezone=auto&forecast_days=2";
 }
 
@@ -130,6 +131,16 @@ WeatherForecast WeatherService::fetch() {
   result.sun.uvIndexMax = daily["uv_index_max"][0].as<float>();
   result.sun.sunrise = extractClockTime(daily["sunrise"][0].as<String>());
   result.sun.sunset = extractClockTime(daily["sunset"][0].as<String>());
+
+  JsonArray dailyMax = daily["temperature_2m_max"].as<JsonArray>();
+  if (dailyMax.size() >= 2) {
+    result.nextDay.condition =
+        mapWeatherCode(daily["weathercode"][1].as<int>()).condition;
+    result.nextDay.precipProbMax =
+        daily["precipitation_probability_max"][1].as<float>();
+    result.nextDay.tempDeltaC = dailyMax[1].as<float>() - dailyMax[0].as<float>();
+    result.nextDay.valid = true;
+  }
 
   return result;
 }

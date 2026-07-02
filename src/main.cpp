@@ -194,7 +194,7 @@ void setup() {
   const int halfWidth = EPD_WIDTH / 2;
   WeatherRenderer weatherUI(display.getFramebuffer(), 0, 0, halfWidth,
                             EPD_HEIGHT);
-  weatherUI.draw(weather.entries, inCommute, weather.sun);
+  weatherUI.draw(weather.entries, inCommute, weather.sun, weather.nextDay);
 
   if (inCommute) {
     CommuteRenderer commuteUI(display.getFramebuffer(), halfWidth, 0,

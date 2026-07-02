@@ -23,9 +23,15 @@ const int FORECAST_Y = 210;          // top of the forecast grid
 const int ICON_SIZE = 64;            // weather icons are 64x64
 const int TEXT_LINE_DISTANCE = 40;   // vertical spacing for FiraSans body text
 const int ICON_TEXT_GAP = 16;        // horizontal gap between an icon and its text
-const int BOTTOM_LINE_GAP = 20;      // padding above the commute/sun footer line
-const int BOTTOM_LINE_Y =            // baseline shared by commute and sun-info rows
+const int BOTTOM_LINE_GAP = 20;      // padding above the footer lines
+const int BOTTOM_LINE_Y =            // baseline of the sun-info row (first footer line)
     FORECAST_Y + ICON_SIZE + 3 * TEXT_LINE_DISTANCE + BOTTOM_LINE_GAP;
+const int SECOND_LINE_Y =            // baseline of the commute / next-day row
+    BOTTOM_LINE_Y + TEXT_LINE_DISTANCE;
+
+// Next-day footer threshold
+const float RAIN_LIKELY_PCT = BIKE_MAX_RAIN_PCT;  // label tomorrow "rain" at/above
+                                                  // this chance; tied to bike cutoff
 
 // Forecast
 const size_t MAX_FORECAST_ITEMS = 4; // entries shown in the grid (incl. current)
@@ -161,7 +167,7 @@ void WeatherRenderer::drawCommuteRecommendation(
                                    : "Better take the train.";
 
   int32_t x = originX_ + MARGIN_X;
-  int32_t y = originY_ + BOTTOM_LINE_Y;
+  int32_t y = originY_ + SECOND_LINE_Y;
   write_string((GFXfont*)&FiraSans, recommendation, &x, &y, framebuffer_);
 }
 
@@ -176,14 +182,50 @@ void WeatherRenderer::drawSunInfo(const SunData& sun, bool isNight) {
   } else {
     line = "Sunset " + sun.sunset;
     if (sun.uvIndexMax >= 0.0f) {
-      line += " | UV Index " + String((int)(sun.uvIndexMax + 0.5f));
+      line += " | UV " + String((int)(sun.uvIndexMax + 0.5f));
     }
   }
   write_string((GFXfont*)&FiraSans, line.c_str(), &x, &y, framebuffer_);
 }
 
+void WeatherRenderer::drawNextDay(const NextDayData& nextDay) {
+  if (!nextDay.valid) return;
+
+  String sky;
+  if (nextDay.isRainLikely(RAIN_LIKELY_PCT)) {
+    switch (nextDay.condition) {
+      case WeatherCondition::Snow: sky = "snow"; break;
+      case WeatherCondition::Thunderstorm:
+      case WeatherCondition::Hail: sky = "storms"; break;
+      default: sky = "rain"; break;
+    }
+  } else {
+    switch (nextDay.condition) {
+      case WeatherCondition::Clear: sky = "clear"; break;
+      case WeatherCondition::Fog: sky = "fog"; break;
+      default: sky = "cloudy"; break;
+    }
+  }
+
+  int deg = nextDay.tempDeltaRounded();
+  String trend;
+  if (deg > 0) {
+    trend = "+" + String(deg) + "°";
+  } else if (deg < 0) {
+    trend = String(deg) + "°";  // String() already prefixes the minus sign
+  } else {
+    trend = "±0°";
+  }
+
+  int32_t x = originX_ + MARGIN_X;
+  int32_t y = originY_ + SECOND_LINE_Y;
+  String line = "Tmrw: " + sky + ", " + trend;
+  write_string((GFXfont*)&FiraSans, line.c_str(), &x, &y, framebuffer_);
+}
+
 void WeatherRenderer::draw(const std::vector<WeatherData>& forecast,
-                           bool showCommute, const SunData& sun) {
+                           bool showCommute, const SunData& sun,
+                           const NextDayData& nextDay) {
   if (forecast.empty()) {
     int32_t x = originX_ + MARGIN_X;
     int32_t y = originY_ + CURRENT_WEATHER_Y;
@@ -199,9 +241,11 @@ void WeatherRenderer::draw(const std::vector<WeatherData>& forecast,
     drawForecastGrid(forecast, sun);
   }
 
+  drawSunInfo(sun, isNightTime(forecast[0], sun));
+
   if (showCommute) {
     drawCommuteRecommendation(forecast);
   } else {
-    drawSunInfo(sun, isNightTime(forecast[0], sun));
+    drawNextDay(nextDay);
   }
 }
