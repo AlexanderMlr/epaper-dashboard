@@ -138,6 +138,7 @@ WeatherForecast WeatherService::fetch() {
         mapWeatherCode(daily["weathercode"][1].as<int>()).condition;
     result.nextDay.precipProbMax =
         daily["precipitation_probability_max"][1].as<float>();
+    result.nextDay.highTempC = dailyMax[1].as<float>();
     result.nextDay.tempDeltaC = dailyMax[1].as<float>() - dailyMax[0].as<float>();
     result.nextDay.valid = true;
   }

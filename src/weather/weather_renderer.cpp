@@ -208,14 +208,15 @@ void WeatherRenderer::drawNextDay(const NextDayData& nextDay) {
   }
 
   int deg = nextDay.tempDeltaRounded();
-  String trend;
+  String delta;
   if (deg > 0) {
-    trend = "+" + String(deg) + "°";
+    delta = "+" + String(deg) + "°";
   } else if (deg < 0) {
-    trend = String(deg) + "°";  // String() already prefixes the minus sign
+    delta = String(deg) + "°";
   } else {
-    trend = "±0°";
+    delta = "±0°";
   }
+  String trend = String(nextDay.highTempRounded()) + "° (" + delta + ")";
 
   int32_t x = originX_ + MARGIN_X;
   int32_t y = originY_ + SECOND_LINE_Y;
