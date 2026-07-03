@@ -28,26 +28,15 @@ void sleepTouchController() {
   delay(120);
 
   Wire.begin(BOARD_SDA, BOARD_SCL);
-  uint8_t addr = 0;
-  for (uint8_t candidate : {0x14, 0x5D}) {  // address depends on INT/RST timing
-    Wire.beginTransmission(candidate);
-    if (Wire.endTransmission() == 0) {
-      addr = candidate;
-      break;
-    }
-  }
 
-  if (addr) {
-    digitalWrite(TOUCH_INT, LOW);
-    for (int i = 0; i < 5; ++i) {  // retry: single send doesn't reliably sleep it
-      Wire.beginTransmission(addr);
-      Wire.write(0x80);  // command register 0x8040
-      Wire.write(0x40);
-      Wire.write(0x05);  // enter sleep
-      Wire.endTransmission();
-      delay(20);
-    }
-    delay(500);
+  digitalWrite(TOUCH_INT, LOW);
+  for (int i = 0; i < 5; ++i) {  // retry: single send doesn't reliably sleep it
+    Wire.beginTransmission(0x5D);
+    Wire.write(0x80);  // command register 0x8040
+    Wire.write(0x40);
+    Wire.write(0x05);  // enter sleep
+    Wire.endTransmission();
+    delay(20);
   }
   Wire.end();
 
