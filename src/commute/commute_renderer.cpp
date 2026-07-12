@@ -65,7 +65,7 @@ void CommuteRenderer::drawRoute(const CommuteRoute& route, int y) {
   if (route.cancelled) lines = "X ";
   for (size_t i = 0; i < route.segments.size(); i++) {
     if (i > 0) lines += " + ";
-    lines += route.segments[i].trainLine;
+    lines += route.segments[i].trainLine.c_str();
   }
   x = originX_ + 30;
   textY = baseY + INNER_LINE_DIST;

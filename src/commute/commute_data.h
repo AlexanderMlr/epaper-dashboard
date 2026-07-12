@@ -1,25 +1,24 @@
 #pragma once
 
-#include <Arduino.h>
-
+#include <string>
 #include <vector>
 
 struct CommuteSegment {
-  String trainLine;
-  String trainCategory;
-  String departureTime;
-  String arrivalTime;
-  String platform;
+  std::string trainLine;
+  std::string trainCategory;
+  std::string departureTime;
+  std::string arrivalTime;
+  std::string platform;
   int delayMinutes = 0;
-  String origin;
-  String destination;
+  std::string origin;
+  std::string destination;
 };
 
 struct CommuteRoute {
   int transfers = 0;
   int durationMinutes = 0;
-  String departureTime;
-  String arrivalTime;
+  std::string departureTime;
+  std::string arrivalTime;
   int departureDelay = 0;
   bool cancelled = false;
   std::vector<CommuteSegment> segments;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <ArduinoJson.h>
+#include <Arduino.h>
 
 #include <vector>
 
