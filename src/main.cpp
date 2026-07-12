@@ -34,7 +34,12 @@ namespace {
 const int kWifiRetrySleepSec = 30;  // deep-sleep duration after WiFi failure
 const int kNtpMinResyncHours = 20;  // earliest re-sync, and only if in window
 const int kNtpMaxResyncHours = 26;  // forced re-sync regardless of hour
+const int kNtpSyncAttempts = 3;
+const uint32_t kNtpAttemptTimeoutMs = 5000;
+const time_t kMinValidEpoch = 1577836800;  // 2020-01-01; below = clock unset
 }
+
+bool clockIsValid() { return time(nullptr) >= kMinValidEpoch; }
 
 bool shouldSyncNtp(time_t now, time_t lastSync) {
   if (lastSync == 0) return true;
@@ -44,6 +49,18 @@ bool shouldSyncNtp(time_t now, time_t lastSync) {
   struct tm t;
   localtime_r(&now, &t);
   return t.tm_hour >= 2 && t.tm_hour < 5;
+}
+
+bool syncNtp() {
+  struct tm timeinfo;
+  for (int attempt = 0; attempt < kNtpSyncAttempts; attempt++) {
+    if (attempt > 0) {
+      Serial.printf("NTP retry %d/%d...\n", attempt, kNtpSyncAttempts - 1);
+      configTzTime(TIME_ZONE, "pool.ntp.org");  // re-arm SNTP for a fresh request
+    }
+    if (getLocalTime(&timeinfo, kNtpAttemptTimeoutMs)) return true;
+  }
+  return false;
 }
 
 bool waitForConnect(uint32_t timeoutMs) {
@@ -102,7 +119,7 @@ uint64_t computeSleepMicros(bool haveTime, const struct tm& t) {
 }
 
 void deepSleep(uint64_t sleepUs) {
-  epochBeforeSleep = time(nullptr);
+  epochBeforeSleep = clockIsValid() ? time(nullptr) : 0;
   plannedSleepUs = sleepUs;
   Serial.printf("Sleeping %llu seconds\n", sleepUs / 1000000ULL);
   Serial.flush();
@@ -127,7 +144,7 @@ void setup() {
   // Set TZ and restore wall clock from RTC cache before anything else, so
   // failure paths (display/WiFi) still preserve the time-cache continuity.
   configTzTime(TIME_ZONE, "pool.ntp.org");
-  if (epochBeforeSleep != 0) {
+  if (epochBeforeSleep >= kMinValidEpoch) {
     struct timeval tv;
     tv.tv_sec = epochBeforeSleep + (time_t)(plannedSleepUs / 1000000ULL);
     tv.tv_usec = 0;
@@ -148,10 +165,9 @@ void setup() {
   }
 
   const time_t now = time(nullptr);
-  if (shouldSyncNtp(now, lastNtpSyncEpoch)) {
+  if (!clockIsValid() || shouldSyncNtp(now, lastNtpSyncEpoch)) {
     Serial.println("Syncing NTP...");
-    struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 5000)) {
+    if (syncNtp()) {
       lastNtpSyncEpoch = time(nullptr);
       Serial.println("Time synced.");
     } else {
