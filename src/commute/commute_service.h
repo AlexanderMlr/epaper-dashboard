@@ -12,5 +12,4 @@ class CommuteService {
 
  private:
   String buildRequestUrl() const;
-  static String extractTime(const String& isoDatetime);
 };

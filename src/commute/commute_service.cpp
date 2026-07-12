@@ -17,46 +17,57 @@ static PsRamAllocator psRamAllocator;
 
 namespace {
 const int COMMUTE_NUM_ROUTES = 5;  // limited to 5 due to screen size
+
+const time_t kMinValidEpoch = 1577836800;  // 2020-01-01; below = clock unset
+
+// Transitous asks API users to identify themselves via User-Agent:
+// https://transitous.org/api/
+const char* USER_AGENT = "epaper-dashboard/1.0";
+
+time_t parseUtcIso(const char* iso) {
+  // "2026-07-12T19:58:00Z" (UTC) -> unix epoch. newlib has no timegm(), so
+  // convert tm via days-from-civil
+  // (https://howardhinnant.github.io/date_algorithms.html)
+  struct tm t = {};
+  if (!iso || !strptime(iso, "%Y-%m-%dT%H:%M:%S", &t)) return 0;
+  int y = t.tm_year + 1900;
+  int mo = t.tm_mon + 1;
+  if (y < 1970) return 0;
+  int a = (mo <= 2) ? y - 1 : y;
+  int era = a / 400;
+  int yoe = a - era * 400;
+  int doy = (153 * (mo + (mo > 2 ? -3 : 9)) + 2) / 5 + t.tm_mday - 1;
+  int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  long days = (long)era * 146097 + doe - 719468;
+  return (time_t)days * 86400 + t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec;
 }
 
-String CommuteService::extractTime(const String& isoDatetime) {
-  // "2026-04-18T08:58:00+02:00" -> "08:58"
-  int tPos = isoDatetime.indexOf('T');
-  if (tPos < 0 || tPos + 6 > (int)isoDatetime.length()) return isoDatetime;
-  return isoDatetime.substring(tPos + 1, tPos + 6);
+String toLocalHHMM(time_t t) {
+  if (t <= 0) return "";
+  struct tm tmLocal;
+  localtime_r(&t, &tmLocal);
+  char buf[6];
+  snprintf(buf, sizeof(buf), "%02d:%02d", tmLocal.tm_hour, tmLocal.tm_min);
+  return String(buf);
 }
-
-static int minutesFromIso(const char* iso) {
-  // Extract minute-of-day from "YYYY-MM-DDTHH:MM:..."
-  if (!iso || strlen(iso) < 16) return -1;
-  int h = (iso[11] - '0') * 10 + (iso[12] - '0');
-  int m = (iso[14] - '0') * 10 + (iso[15] - '0');
-  if (h < 0 || h > 23 || m < 0 || m > 59) return -1;
-  return h * 60 + m;
-}
+}  // namespace
 
 String CommuteService::buildRequestUrl() const {
-  // transport.rest v6: clean REST wrapper around DB HAFAS.
-  // Query flags strip stopovers, tickets, polylines, remarks and related
-  // decorations to keep the response small enough for the ESP32.
-  String url = "https://v6.db.transport.rest/journeys?";
-  url += "from=" + String(COMMUTE_START_EVA);
-  url += "&to=" + String(COMMUTE_DEST_EVA);
-  url += "&results=" + String(COMMUTE_NUM_ROUTES);
-  url += "&stopovers=false&tickets=false&polylines=false";
-  url += "&remarks=false&subStops=false&entrances=false&linesOfStops=false";
-  url += "&pretty=false";
+  // Transitous: community-run MOTIS routing, worldwide GTFS coverage.
+  // All timestamps in the API are UTC.
+  String url = "https://api.transitous.org/api/v1/plan?";
+  url += "fromPlace=" + String(COMMUTE_START_STOP_ID);
+  url += "&toPlace=" + String(COMMUTE_DEST_STOP_ID);
+  url += "&numItineraries=" + String(COMMUTE_NUM_ROUTES);
 
-  struct tm nowTm;
-  if (getLocalTime(&nowTm, 0)) {
-    time_t when = mktime(&nowTm) + COMMUTE_DEPARTURE_OFFSET_MIN * 60;
+  time_t now = time(nullptr);
+  if (now >= kMinValidEpoch) {  // only add time param once NTP has synced
+    time_t when = now + COMMUTE_DEPARTURE_OFFSET_MIN * 60;
     struct tm whenTm;
-    localtime_r(&when, &whenTm);
-    char buf[32];
-    strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z", &whenTm);
-    String iso(buf);
-    iso.replace("+", "%2B");  // URL-encode tz offset sign
-    url += "&departure=" + iso;
+    gmtime_r(&when, &whenTm);
+    char buf[24];
+    strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &whenTm);
+    url += "&time=" + String(buf);
   }
 
   return url;
@@ -72,6 +83,7 @@ std::vector<CommuteRoute> CommuteService::fetchRoutes() {
   String url = buildRequestUrl();
   http.begin(client, url);
   http.setTimeout(15000);
+  http.setUserAgent(USER_AGENT);
 
   Serial.println("Fetching commute data...");
   Serial.printf("URL: %s\n", url.c_str());
@@ -84,23 +96,24 @@ std::vector<CommuteRoute> CommuteService::fetchRoutes() {
     return routes;
   }
 
-  // Filter restricts parsing to just the leg fields the renderer uses.
+  // Filter restricts parsing to just the fields the renderer uses; drops
+  // legGeometry and intermediateStops, which dominate the response size.
   JsonDocument filter(&psRamAllocator);
-  JsonObject legFilter =
-      filter["journeys"][0]["legs"][0].to<JsonObject>();
-  legFilter["departure"] = true;
-  legFilter["plannedDeparture"] = true;
-  legFilter["arrival"] = true;
-  legFilter["plannedArrival"] = true;
-  legFilter["departurePlatform"] = true;
-  legFilter["plannedDeparturePlatform"] = true;
+  JsonObject itineraryFilter = filter["itineraries"][0].to<JsonObject>();
+  itineraryFilter["duration"] = true;
+  itineraryFilter["transfers"] = true;
+  JsonObject legFilter = itineraryFilter["legs"][0].to<JsonObject>();
+  legFilter["mode"] = true;
+  legFilter["routeShortName"] = true;
+  legFilter["startTime"] = true;
+  legFilter["scheduledStartTime"] = true;
+  legFilter["endTime"] = true;
+  legFilter["scheduledEndTime"] = true;
   legFilter["cancelled"] = true;
-  legFilter["walking"] = true;
-  JsonObject lineFilter = legFilter["line"].to<JsonObject>();
-  lineFilter["name"] = true;
-  lineFilter["productName"] = true;
-  legFilter["origin"]["name"] = true;
-  legFilter["destination"]["name"] = true;
+  legFilter["from"]["name"] = true;
+  legFilter["from"]["track"] = true;
+  legFilter["from"]["scheduledTrack"] = true;
+  legFilter["to"]["name"] = true;
 
   JsonDocument doc(&psRamAllocator);
   DeserializationError err = deserializeJson(
@@ -112,40 +125,32 @@ std::vector<CommuteRoute> CommuteService::fetchRoutes() {
     return routes;
   }
 
-  JsonArray journeys = doc["journeys"].as<JsonArray>();
-  Serial.printf("Received %u journeys\n", (unsigned)journeys.size());
+  JsonArray itineraries = doc["itineraries"].as<JsonArray>();
+  Serial.printf("Received %u itineraries\n", (unsigned)itineraries.size());
 
-  for (JsonObject journey : journeys) {
-    JsonArray legs = journey["legs"].as<JsonArray>();
-    if (legs.size() == 0) continue;
-
+  for (JsonObject itinerary : itineraries) {
     CommuteRoute route;
 
-    for (JsonObject legObj : legs) {
-      if (legObj["walking"] | false) continue;  // skip footpath legs
+    for (JsonObject legObj : itinerary["legs"].as<JsonArray>()) {
+      const char* mode = legObj["mode"] | "";
+      if (strcmp(mode, "WALK") == 0) continue;
 
       CommuteSegment seg;
-      const char* dep = legObj["departure"] | "";
-      const char* depPlan = legObj["plannedDeparture"] | "";
-      const char* arr = legObj["arrival"] | "";
-      const char* arrPlan = legObj["plannedArrival"] | "";
-      seg.departureTime = extractTime(dep[0] ? dep : depPlan);
-      seg.arrivalTime = extractTime(arr[0] ? arr : arrPlan);
-
-      int depMin = minutesFromIso(dep);
-      int planMin = minutesFromIso(depPlan);
-      if (depMin >= 0 && planMin >= 0) {
-        seg.delayMinutes = depMin - planMin;
+      time_t dep = parseUtcIso(legObj["startTime"] | "");
+      time_t depPlanned = parseUtcIso(legObj["scheduledStartTime"] | "");
+      time_t arr = parseUtcIso(legObj["endTime"] | "");
+      seg.departureTime = toLocalHHMM(dep);
+      seg.arrivalTime = toLocalHHMM(arr);
+      if (dep > 0 && depPlanned > 0) {
+        seg.delayMinutes = (int)((dep - depPlanned) / 60);
       }
 
-      seg.trainLine = legObj["line"]["name"] | "";
-      seg.trainCategory = legObj["line"]["productName"] | "";
-      seg.origin = legObj["origin"]["name"] | "";
-      seg.destination = legObj["destination"]["name"] | "";
-      const char* platform =
-          legObj["departurePlatform"]
-              | (legObj["plannedDeparturePlatform"] | "");
-      seg.platform = platform;
+      seg.trainLine = legObj["routeShortName"] | "";
+      seg.trainCategory = mode;
+      seg.origin = legObj["from"]["name"] | "";
+      seg.destination = legObj["to"]["name"] | "";
+      seg.platform =
+          legObj["from"]["track"] | (legObj["from"]["scheduledTrack"] | "");
 
       if (legObj["cancelled"] | false) route.cancelled = true;
 
@@ -154,23 +159,11 @@ std::vector<CommuteRoute> CommuteService::fetchRoutes() {
 
     if (route.segments.empty()) continue;
 
-    route.transfers = (int)route.segments.size() - 1;
+    route.transfers = itinerary["transfers"] | 0;
+    route.durationMinutes = (itinerary["duration"] | 0) / 60;
     route.departureTime = route.segments.front().departureTime;
     route.arrivalTime = route.segments.back().arrivalTime;
     route.departureDelay = route.segments.front().delayMinutes;
-
-    const char* firstDep =
-        legs[0]["departure"] | (legs[0]["plannedDeparture"] | "");
-    int lastIdx = (int)legs.size() - 1;
-    const char* lastArr = legs[lastIdx]["arrival"]
-                              | (legs[lastIdx]["plannedArrival"] | "");
-    int start = minutesFromIso(firstDep);
-    int end = minutesFromIso(lastArr);
-    if (start >= 0 && end >= 0) {
-      int dur = end - start;
-      if (dur < 0) dur += 24 * 60;  // route crosses midnight
-      route.durationMinutes = dur;
-    }
 
     routes.push_back(route);
   }

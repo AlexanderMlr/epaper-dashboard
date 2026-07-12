@@ -14,9 +14,10 @@ constexpr const char *LOCATION_LONGITUDE = "";
 const float BIKE_MIN_TEMP_C = 10.0f;
 const float BIKE_MAX_RAIN_PCT = 50.0f;
 
-// Commute (bahn.expert)
-constexpr const char *COMMUTE_START_EVA = "";
-constexpr const char *COMMUTE_DEST_EVA = "";
+// Commute (Transitous, https://transitous.org)
+// Find stop IDs via https://api.transitous.org/api/v1/geocode?text=<name>
+constexpr const char *COMMUTE_START_STOP_ID = "";
+constexpr const char *COMMUTE_DEST_STOP_ID = "";
 const int COMMUTE_DEPARTURE_OFFSET_MIN = 10;  // query journeys departing now + offset
 const int COMMUTE_HOURS_START = 7;            // local hour [0-23], inclusive
 const int COMMUTE_HOURS_END = 9;              // local hour [0-23], exclusive
