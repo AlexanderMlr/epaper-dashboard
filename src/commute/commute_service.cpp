@@ -21,9 +21,9 @@ const int COMMUTE_NUM_ROUTES = 5;  // limited to 5 due to screen size
 
 const time_t kMinValidEpoch = 1577836800;  // 2020-01-01; below = clock unset
 
-// Transitous asks API users to identify themselves via User-Agent:
-// https://transitous.org/api/
-const char* USER_AGENT = "epaper-dashboard/1.0";
+// Transitous asks users to identify via User-Agent: https://transitous.org/api/
+const char* USER_AGENT =
+    "epaper-dashboard/0.1 (+https://github.com/AlexanderMlr/epaper-dashboard)";
 }  // namespace
 
 String CommuteService::buildRequestUrl() const {
@@ -53,6 +53,7 @@ std::vector<CommuteRoute> CommuteService::fetchRoutes() {
   client.setInsecure();
 
   HTTPClient http;
+  http.useHTTP10(true);
   String url = buildRequestUrl();
   http.begin(client, url);
   http.setTimeout(15000);
